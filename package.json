@@ -4,7 +4,9 @@
   "description": "An API for interacting with a MongoDB document or modifier",
   "author": "Eric Dobbertin <aldeed@gmail.com>",
   "license": "MIT",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "main": "./dist/mongo-object.js",
   "scripts": {
     "build": "rm -rf dist/** && babel lib --out-dir dist --ignore *.tests.js",
@@ -28,6 +30,7 @@
     "babel-preset-stage-0": "^6.3.13",
     "eslint": "^2.2.0",
     "eslint-config-airbnb": "^6.0.2",
+    "eslint-plugin-react": "^4.2.0",
     "expect": "^1.14.0",
     "jscs": "^2.10.1",
     "mocha": "^2.4.5"
