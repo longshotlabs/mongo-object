@@ -1,0 +1,19 @@
+{
+  "extends": "airbnb/base",
+  "env": {
+    "node": true,
+    "mocha": true
+  },
+  "globals": {
+    "expect": false,
+    "describe": false
+  },
+  "rules": {
+    "consistent-return": 0,
+    "max-len": 0,
+    "no-use-before-define": [2, "nofunc"],
+    "no-console": 0,
+    "no-param-reassign": 0,
+    "space-before-function-paren": 0
+  }
+}

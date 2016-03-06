@@ -1,0 +1,14 @@
+{
+  "preset": "airbnb",
+  "esnext": true,
+  "excludeFiles": ["node_modules/**", "typings/**", ".vscode/**"],
+  "fileExtensions": [".js", ".jsx"],
+  "requirePaddingNewLinesAfterBlocks": {
+    "allExcept": ["inCallExpressions", "inNewExpressions", "inArrayExpressions", "inProperties"]
+  },
+  "disallowPaddingNewlinesInBlocks": true,
+  "disallowVar": true,
+  "disallowSpaceBeforeObjectValues": false,
+  "requireCamelCaseOrUpperCaseIdentifiers": {"ignoreProperties": true, "strict": false},
+  "maximumLineLength": null
+}
