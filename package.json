@@ -4,6 +4,14 @@
   "description": "An API for interacting with a MongoDB document or modifier",
   "author": "Eric Dobbertin <aldeed@gmail.com>",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aldeed/node-mongo-object.git"
+  },
+  "bugs": {
+    "url": "https://github.com/aldeed/node-mongo-object/issues"
+  },
+  "homepage": "https://github.com/aldeed/node-mongo-object",
   "files": [
     "dist"
   ],
