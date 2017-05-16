@@ -1,6 +1,6 @@
 {
   "name": "mongo-object",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "An API for interacting with a MongoDB document or modifier",
   "author": "Eric Dobbertin <aldeed@gmail.com>",
   "license": "MIT",
@@ -27,7 +27,9 @@
     "test:watch": "npm test -- --watch"
   },
   "dependencies": {
-    "lodash": "^4.5.1"
+    "lodash.foreach": "^4.5.0",
+    "lodash.isempty": "^4.4.0",
+    "lodash.isobject": "^3.0.2"
   },
   "devDependencies": {
     "babel-cli": "^6.4.5",
