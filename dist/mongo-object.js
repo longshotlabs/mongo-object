@@ -6,9 +6,21 @@ Object.defineProperty(exports, "__esModule", {
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
-var _lodash = require('lodash');
+var _lodash = require('lodash.foreach');
 
 var _lodash2 = _interopRequireDefault(_lodash);
+
+var _lodash3 = require('lodash.isempty');
+
+var _lodash4 = _interopRequireDefault(_lodash3);
+
+var _lodash5 = require('lodash.isobject');
+
+var _lodash6 = _interopRequireDefault(_lodash5);
+
+var _lodash7 = require('lodash.without');
+
+var _lodash8 = _interopRequireDefault(_lodash7);
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -112,7 +124,7 @@ var MongoObject = function () {
           }
 
           // Loop
-          _lodash2.default.each(val, function (v, i) {
+          (0, _lodash2.default)(val, function (v, i) {
             if (currentPosition) _this._arrayItemPositions.push(currentPosition + '[' + i + ']');
             parseObj(_this, v, currentPosition ? currentPosition + '[' + i + ']' : i, affectedKey + '.' + i, operator, adjusted, true);
           });
@@ -121,7 +133,7 @@ var MongoObject = function () {
           // but always for the passed-in object, even if it
           // is a custom object.
 
-          if (currentPosition && !_lodash2.default.isEmpty(val)) {
+          if (currentPosition && !(0, _lodash4.default)(val)) {
             // Mark positions with objects that should be ignored when we want endpoints only
             _this._parentPositions.push(currentPosition);
 
@@ -130,7 +142,7 @@ var MongoObject = function () {
           }
 
           // Loop
-          _lodash2.default.each(val, function (v, k) {
+          (0, _lodash2.default)(val, function (v, k) {
             if (v === void 0) {
               delete val[k];
             } else if (k !== '$slice') {
@@ -171,7 +183,7 @@ var MongoObject = function () {
       if (typeof func !== 'function') throw new Error('filter requires a loop function');
 
       var updatedValues = {};
-      _lodash2.default.each(this._affectedKeys, function (affectedKey, position) {
+      (0, _lodash2.default)(this._affectedKeys, function (affectedKey, position) {
         if (endPointsOnly && _this2._parentPositions.indexOf(position) > -1) return; // Only endpoints
         func.call({
           value: _this2.getValueForPosition(position),
@@ -190,7 +202,7 @@ var MongoObject = function () {
       });
 
       // Actually update/remove values as instructed
-      _lodash2.default.each(updatedValues, function (newVal, position) {
+      (0, _lodash2.default)(updatedValues, function (newVal, position) {
         _this2.setValueForPosition(position, newVal);
       });
     }
@@ -830,7 +842,7 @@ var MongoObject = function () {
     value: function removeArrayItems() {
       // Traverse and pull out removed array items at this point
       function traverse(obj) {
-        _lodash2.default.each(obj, function (val, indexOrProp) {
+        (0, _lodash2.default)(obj, function (val, indexOrProp) {
           // Move deeper into the object
           var next = obj[indexOrProp];
 
@@ -838,7 +850,7 @@ var MongoObject = function () {
           if (MongoObject.isBasicObject(next)) {
             traverse(next);
           } else if (Array.isArray(next)) {
-            obj[indexOrProp] = _lodash2.default.without(next, REMOVED_MARKER);
+            obj[indexOrProp] = (0, _lodash8.default)(next, REMOVED_MARKER);
             traverse(obj[indexOrProp]);
           }
         });
@@ -889,7 +901,7 @@ var MongoObject = function () {
       var keepArrays = _ref2$keepArrays === undefined ? false : _ref2$keepArrays;
 
       var newObj = {};
-      _lodash2.default.each(this._affectedKeys, function (affectedKey, position) {
+      (0, _lodash2.default)(this._affectedKeys, function (affectedKey, position) {
         if (typeof affectedKey === 'string' && keepArrays === true && _this4._positionsInsideArrays.indexOf(position) === -1 && _this4._objectPositions.indexOf(position) === -1 || keepArrays !== true && _this4._parentPositions.indexOf(position) === -1) {
           newObj[affectedKey] = _this4.getValueForPosition(position);
         }
@@ -1055,7 +1067,7 @@ var MongoObject = function () {
     key: '_keyToPosition',
     value: function _keyToPosition(key, wrapAll) {
       var position = '';
-      _lodash2.default.each(key.split('.'), function (piece, i) {
+      (0, _lodash2.default)(key.split('.'), function (piece, i) {
         if (i === 0 && !wrapAll) {
           position += piece;
         } else {
@@ -1099,13 +1111,13 @@ var MongoObject = function () {
     key: 'cleanNulls',
     value: function cleanNulls(doc, isArray, keepEmptyStrings) {
       var newDoc = isArray ? [] : {};
-      _lodash2.default.each(doc, function (val, key) {
+      (0, _lodash2.default)(doc, function (val, key) {
         if (!Array.isArray(val) && MongoObject.isBasicObject(val)) {
           val = MongoObject.cleanNulls(val, false, keepEmptyStrings); // Recurse into plain objects
-          if (!_lodash2.default.isEmpty(val)) newDoc[key] = val;
+          if (!(0, _lodash4.default)(val)) newDoc[key] = val;
         } else if (Array.isArray(val)) {
           val = MongoObject.cleanNulls(val, true, keepEmptyStrings); // Recurse into non-typed arrays
-          if (!_lodash2.default.isEmpty(val)) newDoc[key] = val;
+          if (!(0, _lodash4.default)(val)) newDoc[key] = val;
         } else if (!isNullUndefinedOrEmptyString(val)) {
           newDoc[key] = val;
         } else if (keepEmptyStrings && typeof val === 'string' && val.length === 0) {
@@ -1130,7 +1142,7 @@ var MongoObject = function () {
       var nulls = {};
 
       // Loop through the flat doc
-      _lodash2.default.each(flatDoc, function (val, key) {
+      (0, _lodash2.default)(flatDoc, function (val, key) {
         if (val === null || val === undefined || !keepEmptyStrings && typeof val === 'string' && val.length === 0 ||
 
         // If value is an array in which all the values recursively are undefined, null,
@@ -1175,8 +1187,8 @@ var MongoObject = function () {
       flatDoc = MongoObject.cleanNulls(flatDoc, false, keepEmptyStrings);
 
       var modifier = {};
-      if (!_lodash2.default.isEmpty(flatDoc)) modifier.$set = flatDoc;
-      if (!_lodash2.default.isEmpty(nulls)) modifier.$unset = nulls;
+      if (!(0, _lodash4.default)(flatDoc)) modifier.$set = flatDoc;
+      if (!(0, _lodash4.default)(nulls)) modifier.$unset = nulls;
       return modifier;
     }
 
@@ -1221,13 +1233,13 @@ var MongoObject = function () {
     key: 'expandObj',
     value: function expandObj(doc) {
       var newDoc = {};
-      _lodash2.default.each(doc, function (val, key) {
+      (0, _lodash2.default)(doc, function (val, key) {
         var subkeys = key.split('.');
         var subkeylen = subkeys.length;
         var current = newDoc;
         for (var i = 0; i < subkeylen; i++) {
           var subkey = subkeys[i];
-          if (typeof current[subkey] !== 'undefined' && !_lodash2.default.isObject(current[subkey])) {
+          if (typeof current[subkey] !== 'undefined' && !(0, _lodash6.default)(current[subkey])) {
             break; // Already set for some reason; leave it alone
           }
 
@@ -1238,7 +1250,7 @@ var MongoObject = function () {
             // See if the next piece is a number
             var nextPiece = subkeys[i + 1];
             nextPiece = parseInt(nextPiece, 10);
-            if (isNaN(nextPiece) && !_lodash2.default.isObject(current[subkey])) {
+            if (isNaN(nextPiece) && !(0, _lodash6.default)(current[subkey])) {
               current[subkey] = {};
             } else if (!isNaN(nextPiece) && !Array.isArray(current[subkey])) {
               current[subkey] = [];
