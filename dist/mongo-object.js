@@ -40,9 +40,8 @@ var MongoObject = function () {
    * upon creation of the instance, the object will have any `undefined` keys
    * removed recursively.
    */
-
   function MongoObject(obj) {
-    var blackboxKeys = arguments.length <= 1 || arguments[1] === undefined ? [] : arguments[1];
+    var blackboxKeys = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : [];
 
     _classCallCheck(this, MongoObject);
 
@@ -142,7 +141,9 @@ var MongoObject = function () {
           }
 
           // Loop
-          (0, _lodash2.default)(val, function (v, k) {
+          Object.keys(val).forEach(function (k) {
+            var v = val[k];
+
             if (v === void 0) {
               delete val[k];
             } else if (k !== '$slice') {
@@ -175,22 +176,21 @@ var MongoObject = function () {
     value: function forEachNode(func) {
       var _this2 = this;
 
-      var _ref = arguments.length <= 1 || arguments[1] === undefined ? {} : arguments[1];
-
-      var _ref$endPointsOnly = _ref.endPointsOnly;
-      var endPointsOnly = _ref$endPointsOnly === undefined ? true : _ref$endPointsOnly;
+      var _ref = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {},
+          _ref$endPointsOnly = _ref.endPointsOnly,
+          endPointsOnly = _ref$endPointsOnly === undefined ? true : _ref$endPointsOnly;
 
       if (typeof func !== 'function') throw new Error('filter requires a loop function');
 
       var updatedValues = {};
-      (0, _lodash2.default)(this._affectedKeys, function (affectedKey, position) {
+      Object.keys(this._affectedKeys).forEach(function (position) {
         if (endPointsOnly && _this2._parentPositions.indexOf(position) > -1) return; // Only endpoints
         func.call({
           value: _this2.getValueForPosition(position),
           isArrayItem: _this2._arrayItemPositions.indexOf(position) > -1,
           operator: extractOp(position),
           position: position,
-          key: affectedKey,
+          key: _this2._affectedKeys[position],
           genericKey: _this2._genericAffectedKeys[position],
           updateValue: function updateValue(newVal) {
             updatedValues[position] = newVal;
@@ -202,8 +202,8 @@ var MongoObject = function () {
       });
 
       // Actually update/remove values as instructed
-      (0, _lodash2.default)(updatedValues, function (newVal, position) {
-        _this2.setValueForPosition(position, newVal);
+      Object.keys(updatedValues).forEach(function (position) {
+        _this2.setValueForPosition(position, updatedValues[position]);
       });
     }
   }, {
@@ -895,13 +895,13 @@ var MongoObject = function () {
     value: function getFlatObject() {
       var _this4 = this;
 
-      var _ref2 = arguments.length <= 0 || arguments[0] === undefined ? {} : arguments[0];
-
-      var _ref2$keepArrays = _ref2.keepArrays;
-      var keepArrays = _ref2$keepArrays === undefined ? false : _ref2$keepArrays;
+      var _ref2 = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {},
+          _ref2$keepArrays = _ref2.keepArrays,
+          keepArrays = _ref2$keepArrays === undefined ? false : _ref2$keepArrays;
 
       var newObj = {};
-      (0, _lodash2.default)(this._affectedKeys, function (affectedKey, position) {
+      Object.keys(this._affectedKeys).forEach(function (position) {
+        var affectedKey = _this4._affectedKeys[position];
         if (typeof affectedKey === 'string' && keepArrays === true && _this4._positionsInsideArrays.indexOf(position) === -1 && _this4._objectPositions.indexOf(position) === -1 || keepArrays !== true && _this4._parentPositions.indexOf(position) === -1) {
           newObj[affectedKey] = _this4.getValueForPosition(position);
         }
@@ -1111,7 +1111,8 @@ var MongoObject = function () {
     key: 'cleanNulls',
     value: function cleanNulls(doc, isArray, keepEmptyStrings) {
       var newDoc = isArray ? [] : {};
-      (0, _lodash2.default)(doc, function (val, key) {
+      Object.keys(doc).forEach(function (key) {
+        var val = doc[key];
         if (!Array.isArray(val) && MongoObject.isBasicObject(val)) {
           val = MongoObject.cleanNulls(val, false, keepEmptyStrings); // Recurse into plain objects
           if (!(0, _lodash4.default)(val)) newDoc[key] = val;
@@ -1142,7 +1143,8 @@ var MongoObject = function () {
       var nulls = {};
 
       // Loop through the flat doc
-      (0, _lodash2.default)(flatDoc, function (val, key) {
+      Object.keys(flatDoc).forEach(function (key) {
+        var val = flatDoc[key];
         if (val === null || val === undefined || !keepEmptyStrings && typeof val === 'string' && val.length === 0 ||
 
         // If value is an array in which all the values recursively are undefined, null,
@@ -1171,12 +1173,11 @@ var MongoObject = function () {
   }, {
     key: 'docToModifier',
     value: function docToModifier(doc) {
-      var _ref3 = arguments.length <= 1 || arguments[1] === undefined ? {} : arguments[1];
-
-      var _ref3$keepArrays = _ref3.keepArrays;
-      var keepArrays = _ref3$keepArrays === undefined ? false : _ref3$keepArrays;
-      var _ref3$keepEmptyString = _ref3.keepEmptyStrings;
-      var keepEmptyStrings = _ref3$keepEmptyString === undefined ? false : _ref3$keepEmptyString;
+      var _ref3 = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {},
+          _ref3$keepArrays = _ref3.keepArrays,
+          keepArrays = _ref3$keepArrays === undefined ? false : _ref3$keepArrays,
+          _ref3$keepEmptyString = _ref3.keepEmptyStrings,
+          keepEmptyStrings = _ref3$keepEmptyString === undefined ? false : _ref3$keepEmptyString;
 
       // Flatten doc
       var mDoc = new MongoObject(doc);
@@ -1233,7 +1234,8 @@ var MongoObject = function () {
     key: 'expandObj',
     value: function expandObj(doc) {
       var newDoc = {};
-      (0, _lodash2.default)(doc, function (val, key) {
+      Object.keys(doc).forEach(function (key) {
+        var val = doc[key];
         var subkeys = key.split('.');
         var subkeylen = subkeys.length;
         var current = newDoc;
