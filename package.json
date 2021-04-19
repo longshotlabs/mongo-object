@@ -2,16 +2,16 @@
   "name": "mongo-object",
   "version": "0.1.4",
   "description": "An API for interacting with a MongoDB document or modifier",
-  "author": "Eric Dobbertin <aldeed@gmail.com>",
+  "author": "Eric Dobbertin <eric@dairystatedesigns.com>",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/aldeed/node-mongo-object.git"
+    "url": "https://github.com/longshotlabs/node-mongo-object.git"
   },
   "bugs": {
-    "url": "https://github.com/aldeed/node-mongo-object/issues"
+    "url": "https://github.com/longshotlabs/node-mongo-object/issues"
   },
-  "homepage": "https://github.com/aldeed/node-mongo-object",
+  "homepage": "https://github.com/longshotlabs/node-mongo-object",
   "files": [
     "dist"
   ],
