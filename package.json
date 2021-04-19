@@ -1,6 +1,6 @@
 {
   "name": "mongo-object",
-  "version": "0.1.4",
+  "version": "0.0.0-development",
   "description": "An API for interacting with a MongoDB document or modifier",
   "author": "Eric Dobbertin <eric@dairystatedesigns.com>",
   "license": "MIT",
