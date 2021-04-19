@@ -12,7 +12,6 @@ jobs:
     defaults:
       run:
         shell: bash
-        working-directory: package
     steps:
     - name: Check out files
       uses: actions/checkout@v2
@@ -30,7 +29,6 @@ jobs:
     defaults:
       run:
         shell: bash
-        working-directory: package
     steps:
     - name: Check out files
       uses: actions/checkout@v2
@@ -50,7 +48,6 @@ jobs:
     defaults:
       run:
         shell: bash
-        working-directory: package
     steps:
       - name: Check out files
         uses: actions/checkout@v2
