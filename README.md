@@ -14,4 +14,4 @@ An API for interacting with a MongoDB document or modifier.
 
 ## Changelog
 
-TODO
+3.0.0 Includes TypeScript types and exports as an ECMAScript Module. Otherwise it should be identical to 2.0.0.
