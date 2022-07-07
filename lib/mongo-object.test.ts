@@ -1,16 +1,22 @@
-import expect from 'expect';
-import MongoObject from './mongo-object';
+import expectPkg from 'expect';
+import MongoObject, {
+  GetFlatObjectOptions,
+  KeyInfo,
+  MongoDoc,
+} from './mongo-object.js';
+
+const expect = expectPkg.default;
 
 describe('MongoObject', () => {
   it('round trip', () => {
     // Helper Functions
-    function passthru(doc) {
+    function passthru(doc: MongoDoc) {
       const mDoc = new MongoObject(doc);
       return mDoc.getObject();
     }
 
-    function rt(o) {
-      expect(passthru(o)).toEqual(o);
+    function rt(doc: MongoDoc) {
+      expect(passthru(doc)).toEqual(doc);
     }
 
     // Round Trip Tests
@@ -39,12 +45,16 @@ describe('MongoObject', () => {
 
   it('typed arrays', () => {
     const mo = new MongoObject({ foo: new Uint8Array(10) });
-    expect(mo._affectedKeys['foo.0']).toEqual(undefined);
+    // We must use non-dot-notation to access private prop and keep TypeScript happy
+    // eslint-disable-next-line dot-notation
+    expect(mo['_affectedKeys']['foo.0']).toEqual(undefined);
   });
 
   it('forEachNode', () => {
     const mo = new MongoObject({ foo: 'k', length: 5 });
-    expect(mo._affectedKeys).toEqual({ foo: 'foo', length: 'length' });
+    // We must use non-dot-notation to access private prop and keep TypeScript happy
+    // eslint-disable-next-line dot-notation
+    expect(mo['_affectedKeys']).toEqual({ foo: 'foo', length: 'length' });
 
     let count = 0;
     mo.forEachNode(() => {
@@ -55,13 +65,17 @@ describe('MongoObject', () => {
 
   it('flat', () => {
     // Helper Functions
-    function flat(doc, opts) {
+    function flat(doc: MongoDoc, opts?: GetFlatObjectOptions) {
       const mDoc = new MongoObject(doc);
       return mDoc.getFlatObject(opts);
     }
 
-    function testFlat(o, exp, opts) {
-      expect(flat(o, opts)).toEqual(exp);
+    function testFlat(
+      doc: MongoDoc,
+      exp: Record<string, any>,
+      opts?: GetFlatObjectOptions,
+    ) {
+      expect(flat(doc, opts)).toEqual(exp);
     }
 
     // Flatten Tests
@@ -75,9 +89,17 @@ describe('MongoObject', () => {
     testFlat({ a: [1, 2] }, { 'a.0': 1, 'a.1': 2 });
     testFlat({ a: [1, 2] }, { a: [1, 2] }, { keepArrays: true });
     testFlat({ a: ['Test1', 'Test2'] }, { 'a.0': 'Test1', 'a.1': 'Test2' });
-    testFlat({ a: ['Test1', 'Test2'] }, { a: ['Test1', 'Test2'] }, { keepArrays: true });
+    testFlat(
+      { a: ['Test1', 'Test2'] },
+      { a: ['Test1', 'Test2'] },
+      { keepArrays: true },
+    );
     testFlat({ a: [testDate, testDate] }, { 'a.0': testDate, 'a.1': testDate });
-    testFlat({ a: [testDate, testDate] }, { a: [testDate, testDate] }, { keepArrays: true });
+    testFlat(
+      { a: [testDate, testDate] },
+      { a: [testDate, testDate] },
+      { keepArrays: true },
+    );
     testFlat({ a: { b: 1 } }, { 'a.b': 1 });
     testFlat({ a: { b: 'Test' } }, { 'a.b': 'Test' });
     testFlat({ a: { b: testDate } }, { 'a.b': testDate });
@@ -85,62 +107,113 @@ describe('MongoObject', () => {
     testFlat({ a: { b: {} } }, { 'a.b': {} });
     testFlat({ a: { b: [1, 2] } }, { 'a.b.0': 1, 'a.b.1': 2 });
     testFlat({ a: { b: [1, 2] } }, { 'a.b': [1, 2] }, { keepArrays: true });
-    testFlat({ a: { b: ['Test1', 'Test2'] } }, { 'a.b.0': 'Test1', 'a.b.1': 'Test2' });
-    testFlat({ a: { b: ['Test1', 'Test2'] } }, { 'a.b': ['Test1', 'Test2'] }, { keepArrays: true });
-    testFlat({ a: { b: [testDate, testDate] } }, { 'a.b.0': testDate, 'a.b.1': testDate });
-    testFlat({ a: { b: [testDate, testDate] } }, { 'a.b': [testDate, testDate] }, { keepArrays: true });
-    testFlat({ a: { b: [{ c: 1 }, { c: 2 }] } }, { 'a.b.0.c': 1, 'a.b.1.c': 2 });
-    testFlat({ a: { b: [{ c: 1 }, { c: 2 }] } }, { 'a.b': [{ c: 1 }, { c: 2 }] }, { keepArrays: true });
-    testFlat({ a: { b: [{ c: 'Test1' }, { c: 'Test2' }] } }, { 'a.b.0.c': 'Test1', 'a.b.1.c': 'Test2' });
-    testFlat({ a: { b: [{ c: 'Test1' }, { c: 'Test2' }] } }, { 'a.b': [{ c: 'Test1' }, { c: 'Test2' }] }, { keepArrays: true });
-    testFlat({ a: { b: [{ c: testDate }, { c: testDate }] } }, { 'a.b.0.c': testDate, 'a.b.1.c': testDate });
-    testFlat({ a: { b: [{ c: testDate }, { c: testDate }] } }, { 'a.b': [{ c: testDate }, { c: testDate }] }, { keepArrays: true });
+    testFlat(
+      { a: { b: ['Test1', 'Test2'] } },
+      { 'a.b.0': 'Test1', 'a.b.1': 'Test2' },
+    );
+    testFlat(
+      { a: { b: ['Test1', 'Test2'] } },
+      { 'a.b': ['Test1', 'Test2'] },
+      { keepArrays: true },
+    );
+    testFlat(
+      { a: { b: [testDate, testDate] } },
+      { 'a.b.0': testDate, 'a.b.1': testDate },
+    );
+    testFlat(
+      { a: { b: [testDate, testDate] } },
+      { 'a.b': [testDate, testDate] },
+      { keepArrays: true },
+    );
+    testFlat(
+      { a: { b: [{ c: 1 }, { c: 2 }] } },
+      { 'a.b.0.c': 1, 'a.b.1.c': 2 },
+    );
+    testFlat(
+      { a: { b: [{ c: 1 }, { c: 2 }] } },
+      { 'a.b': [{ c: 1 }, { c: 2 }] },
+      { keepArrays: true },
+    );
+    testFlat(
+      { a: { b: [{ c: 'Test1' }, { c: 'Test2' }] } },
+      { 'a.b.0.c': 'Test1', 'a.b.1.c': 'Test2' },
+    );
+    testFlat(
+      { a: { b: [{ c: 'Test1' }, { c: 'Test2' }] } },
+      { 'a.b': [{ c: 'Test1' }, { c: 'Test2' }] },
+      { keepArrays: true },
+    );
+    testFlat(
+      { a: { b: [{ c: testDate }, { c: testDate }] } },
+      { 'a.b.0.c': testDate, 'a.b.1.c': testDate },
+    );
+    testFlat(
+      { a: { b: [{ c: testDate }, { c: testDate }] } },
+      { 'a.b': [{ c: testDate }, { c: testDate }] },
+      { keepArrays: true },
+    );
   });
 
   it('removeValueForPosition', () => {
     // Helper Function
-    function testRemove(o, exp, pos) {
-      const mDoc = new MongoObject(o);
+    function testRemove(doc: MongoDoc, exp: MongoDoc, pos: string) {
+      const mDoc = new MongoObject(doc);
       mDoc.removeValueForPosition(pos);
       expect(mDoc.getObject()).toEqual(exp);
     }
 
     // correctly removed
-    testRemove({
-      foo: 'bar',
-    }, {}, 'foo');
+    testRemove(
+      {
+        foo: 'bar',
+      },
+      {},
+      'foo',
+    );
 
     // correctly not removed
-    testRemove({
-      foo: 'bar',
-    }, {
-      foo: 'bar',
-    }, 'fooBar');
+    testRemove(
+      {
+        foo: 'bar',
+      },
+      {
+        foo: 'bar',
+      },
+      'fooBar',
+    );
 
     // all descendents are removed, too
-    testRemove({
-      foo: {
-        bar: 'foobar',
+    testRemove(
+      {
+        foo: {
+          bar: 'foobar',
+        },
       },
-    }, {}, 'foo');
+      {},
+      'foo',
+    );
 
     // but not siblings
-    testRemove({
-      foo: {
-        bar: 'foobar',
-        foobar: 1,
+    testRemove(
+      {
+        foo: {
+          bar: 'foobar',
+          foobar: 1,
+        },
       },
-    }, {
-      foo: {
-        bar: 'foobar',
+      {
+        foo: {
+          bar: 'foobar',
+        },
       },
-    }, 'foo[foobar]');
+      'foo[foobar]',
+    );
   });
 
   it('getValueForPosition', () => {
     // Helper Function
-    function testGetVal(o, pos, exp) {
-      const mDoc = new MongoObject(o);
+    function testGetVal(doc: MongoDoc, pos: string, exp: any) {
+      const mDoc = new MongoObject(doc);
       expect(mDoc.getValueForPosition(pos)).toEqual(exp);
     }
 
@@ -161,34 +234,54 @@ describe('MongoObject', () => {
 
   it('getInfoForKey', () => {
     // Helper Function
-    function testGetInfo(o, key, exp) {
-      const mDoc = new MongoObject(o);
+    function testGetInfo(doc: MongoDoc, key: string, exp: KeyInfo | undefined) {
+      const mDoc = new MongoObject(doc);
       expect(mDoc.getInfoForKey(key)).toEqual(exp);
     }
 
-    testGetInfo({ $set: { foo: 'bar' } }, 'foo', { value: 'bar', operator: '$set' });
+    testGetInfo({ $set: { foo: 'bar' } }, 'foo', {
+      value: 'bar',
+      operator: '$set',
+    });
 
-    testGetInfo({ $set: { 'foo.bar': 1 } }, 'foo.bar', { value: 1, operator: '$set' });
+    testGetInfo({ $set: { 'foo.bar': 1 } }, 'foo.bar', {
+      value: 1,
+      operator: '$set',
+    });
 
     testGetInfo({ $set: { 'foo.bar': 1 } }, '$set', undefined); // Not valid
 
-    testGetInfo({ $set: { 'foo.bar.0': 1 } }, 'foo.bar.0', { value: 1, operator: '$set' });
+    testGetInfo({ $set: { 'foo.bar.0': 1 } }, 'foo.bar.0', {
+      value: 1,
+      operator: '$set',
+    });
 
-    testGetInfo({ $pull: { foo: 'bar' } }, 'foo', { value: 'bar', operator: '$pull' });
+    testGetInfo({ $pull: { foo: 'bar' } }, 'foo', {
+      value: 'bar',
+      operator: '$pull',
+    });
 
     testGetInfo({ foo: ['bar'] }, 'foo', { value: ['bar'], operator: null });
 
     testGetInfo({ foo: ['bar'] }, 'foo.0', { value: 'bar', operator: null });
 
-    testGetInfo({ foo: [{ a: 1 }, { a: 2 }] }, 'foo.1.a', { value: 2, operator: null });
+    testGetInfo({ foo: [{ a: 1 }, { a: 2 }] }, 'foo.1.a', {
+      value: 2,
+      operator: null,
+    });
 
-    testGetInfo({ foo: [{ a: 1 }, { a: 2 }] }, 'foo.1', { value: { a: 2 }, operator: null });
+    testGetInfo({ foo: [{ a: 1 }, { a: 2 }] }, 'foo.1', {
+      value: { a: 2 },
+      operator: null,
+    });
   });
 
   it('_keyToPosition', () => {
     // Helper Function
-    function convert(key, wrapAll, exp) {
-      const pos = MongoObject._keyToPosition(key, wrapAll);
+    function convert(key: string, wrapAll: boolean, exp: string) {
+      // We must use non-dot-notation to access private prop and keep TypeScript happy
+      // eslint-disable-next-line dot-notation
+      const pos = MongoObject['_keyToPosition'](key, wrapAll);
       expect(pos).toEqual(exp);
     }
 
@@ -201,7 +294,7 @@ describe('MongoObject', () => {
   });
 
   it('makeKeyGeneric', () => {
-    function testMakeKeyGeneric(input, expectedOutput) {
+    function testMakeKeyGeneric(input: any, expectedOutput: string | null) {
       const generic = MongoObject.makeKeyGeneric(input);
       expect(generic).toEqual(expectedOutput);
     }
@@ -210,52 +303,15 @@ describe('MongoObject', () => {
     testMakeKeyGeneric('foo', 'foo');
     testMakeKeyGeneric('foo.bar', 'foo.bar');
     testMakeKeyGeneric('foo.$', 'foo.$');
-    testMakeKeyGeneric('foo.0.0.ab.c.123.4square.d.67e.f.g.1', 'foo.$.$.ab.c.$.4square.d.67e.f.g.$');
+    testMakeKeyGeneric(
+      'foo.0.0.ab.c.123.4square.d.67e.f.g.1',
+      'foo.$.$.ab.c.$.4square.d.67e.f.g.$',
+    );
     testMakeKeyGeneric('foo.$[].foo.$[bar].$.$[]', 'foo.$.foo.$.$.$');
-    testMakeKeyGeneric('foo.$foo.$foo[bar]foo.foo$[].foo$[bar]', 'foo.$foo.$foo[bar]foo.foo$[].foo$[bar]');
-  });
-
-  it('cleanNulls', () => {
-    const date = new Date();
-
-    const cleaned = MongoObject.cleanNulls({
-      a: undefined,
-      b: undefined,
-      c: null,
-      d: '',
-      e: 'keep me',
-      f: {
-        a: undefined,
-        b: undefined,
-        c: null,
-        d: '',
-        e: 'keep me',
-      },
-      g: {
-        a: null,
-      },
-      h: {
-        a: date,
-      },
-    });
-
-    expect(cleaned).toEqual({ e: 'keep me', f: { e: 'keep me' }, h: { a: date } });
-  });
-
-  it('reportNulls', () => {
-    const report = MongoObject.reportNulls({
-      a: undefined,
-      b: undefined,
-      c: null,
-      d: '',
-      e: 'keep me',
-    });
-    expect(report).toEqual({
-      a: '',
-      b: '',
-      c: '',
-      d: '',
-    });
+    testMakeKeyGeneric(
+      'foo.$foo.$foo[bar]foo.foo$[].foo$[bar]',
+      'foo.$foo.$foo[bar]foo.foo$[].foo$[bar]',
+    );
   });
 
   it('docToModifier', () => {
@@ -290,7 +346,10 @@ describe('MongoObject', () => {
     };
 
     // Test 1 w/ keepArrays, w/ keepEmptyStrings
-    let mod = MongoObject.docToModifier(testObj, { keepArrays: true, keepEmptyStrings: true });
+    let mod = MongoObject.docToModifier(testObj, {
+      keepArrays: true,
+      keepEmptyStrings: true,
+    });
     expect(mod).toEqual({
       $set: {
         a: 1,
@@ -299,7 +358,8 @@ describe('MongoObject', () => {
         'd.a': 1,
         'd.b': 'foo',
         'd.c': date,
-        'd.d': [// array of objects should remain array
+        'd.d': [
+          // array of objects should remain array
           {
             a: 1,
             b: 'foo',
@@ -322,7 +382,10 @@ describe('MongoObject', () => {
     });
 
     // Test 2 w/ keepArrays, w/o keepEmptyStrings
-    mod = MongoObject.docToModifier(testObj, { keepArrays: true, keepEmptyStrings: false });
+    mod = MongoObject.docToModifier(testObj, {
+      keepArrays: true,
+      keepEmptyStrings: false,
+    });
     expect(mod).toEqual({
       $set: {
         a: 1,
@@ -331,7 +394,8 @@ describe('MongoObject', () => {
         'd.a': 1,
         'd.b': 'foo',
         'd.c': date,
-        'd.d': [// array of objects should remain array
+        'd.d': [
+          // array of objects should remain array
           {
             a: 1,
             b: 'foo',
@@ -354,7 +418,10 @@ describe('MongoObject', () => {
     });
 
     // Test 3 w/o keepArrays, w/ keepEmptyStrings
-    mod = MongoObject.docToModifier(testObj, { keepArrays: false, keepEmptyStrings: true });
+    mod = MongoObject.docToModifier(testObj, {
+      keepArrays: false,
+      keepEmptyStrings: true,
+    });
     expect(mod).toEqual({
       $set: {
         a: 1,
@@ -380,7 +447,10 @@ describe('MongoObject', () => {
     });
 
     // Test 4 w/o keepArrays, w/o keepEmptyStrings
-    mod = MongoObject.docToModifier(testObj, { keepArrays: false, keepEmptyStrings: false });
+    mod = MongoObject.docToModifier(testObj, {
+      keepArrays: false,
+      keepEmptyStrings: false,
+    });
     expect(mod).toEqual({
       $set: {
         a: 1,
@@ -407,7 +477,7 @@ describe('MongoObject', () => {
   });
 
   it('expandObj', () => {
-    function testExpandObj(val, exp) {
+    function testExpandObj(val: Record<string, any>, exp: Record<string, any>) {
       const mod = MongoObject.expandObj(val);
       expect(mod).toEqual(exp);
     }
@@ -415,82 +485,116 @@ describe('MongoObject', () => {
     testExpandObj({}, {});
     testExpandObj({ foo: 'bar' }, { foo: 'bar' });
     testExpandObj({ foo: 'bar', baz: 1 }, { foo: 'bar', baz: 1 });
-    testExpandObj({
-      'foo.bar': 'baz',
-      baz: 1,
-    }, {
-      foo: { bar: 'baz' },
-      baz: 1,
-    });
-    testExpandObj({
-      'foo.bar.0': 'foo',
-      'foo.bar.1': 'baz',
-      baz: 1,
-    }, {
-      foo: { bar: ['foo', 'baz'] },
-      baz: 1,
-    });
-    testExpandObj({
-      'foo.bar.1': 'baz',
-      baz: 1,
-    }, {
-      foo: { bar: [, 'baz'] }, // eslint-disable-line no-sparse-arrays
-      baz: 1,
-    });
-    testExpandObj({
-      'foo.bar.1.bam': 'baz',
-      baz: 1,
-    }, {
-      foo: { bar: [, { bam: 'baz' }] }, // eslint-disable-line no-sparse-arrays
-      baz: 1,
-    });
-    testExpandObj({
-      'foo.bar.0': null,
-      'foo.bar.1.bam': 'baz',
-      baz: 1,
-    }, {
-      foo: { bar: [null, { bam: 'baz' }] },
-      baz: 1,
-    });
-    testExpandObj({
-      'foo.bar.0': 'baz',
-      'foo.bar.1.bam': 'baz',
-      baz: 1,
-    }, {
-      foo: { bar: ['baz', { bam: 'baz' }] },
-      baz: 1,
-    });
-    testExpandObj({
-      'foo.bar.0': 'baz',
-      'foo.bar.1.bam': 'baz',
-      'foo.bar.1.boo': 'foo',
-      baz: 1,
-    }, {
-      foo: { bar: ['baz', { bam: 'baz', boo: 'foo' }] },
-      baz: 1,
-    });
-    testExpandObj({
-      'foo.0': null,
-      'foo.1.bar': 'baz',
-      baz: 1,
-    }, {
-      foo: [null, { bar: 'baz' }],
-      baz: 1,
-    });
-    testExpandObj({
-      'foo.0': null,
-      'foo.1.bar': null,
-      baz: 1,
-    }, {
-      foo: [null, { bar: null }],
-      baz: 1,
-    });
+    testExpandObj(
+      {
+        'foo.bar': 'baz',
+        baz: 1,
+      },
+      {
+        foo: { bar: 'baz' },
+        baz: 1,
+      },
+    );
+    testExpandObj(
+      {
+        'foo.bar.0': 'foo',
+        'foo.bar.1': 'baz',
+        baz: 1,
+      },
+      {
+        foo: { bar: ['foo', 'baz'] },
+        baz: 1,
+      },
+    );
+    testExpandObj(
+      {
+        'foo.bar.1': 'baz',
+        baz: 1,
+      },
+      {
+        foo: { bar: [, 'baz'] }, // eslint-disable-line no-sparse-arrays
+        baz: 1,
+      },
+    );
+    testExpandObj(
+      {
+        'foo.bar.1.bam': 'baz',
+        baz: 1,
+      },
+      {
+        foo: { bar: [, { bam: 'baz' }] }, // eslint-disable-line no-sparse-arrays
+        baz: 1,
+      },
+    );
+    testExpandObj(
+      {
+        'foo.bar.0': null,
+        'foo.bar.1.bam': 'baz',
+        baz: 1,
+      },
+      {
+        foo: { bar: [null, { bam: 'baz' }] },
+        baz: 1,
+      },
+    );
+    testExpandObj(
+      {
+        'foo.bar.0': 'baz',
+        'foo.bar.1.bam': 'baz',
+        baz: 1,
+      },
+      {
+        foo: { bar: ['baz', { bam: 'baz' }] },
+        baz: 1,
+      },
+    );
+    testExpandObj(
+      {
+        'foo.bar.0': 'baz',
+        'foo.bar.1.bam': 'baz',
+        'foo.bar.1.boo': 'foo',
+        baz: 1,
+      },
+      {
+        foo: { bar: ['baz', { bam: 'baz', boo: 'foo' }] },
+        baz: 1,
+      },
+    );
+    testExpandObj(
+      {
+        'foo.0': null,
+        'foo.1.bar': 'baz',
+        baz: 1,
+      },
+      {
+        foo: [null, { bar: 'baz' }],
+        baz: 1,
+      },
+    );
+    testExpandObj(
+      {
+        'foo.0': null,
+        'foo.1.bar': null,
+        baz: 1,
+      },
+      {
+        foo: [null, { bar: null }],
+        baz: 1,
+      },
+    );
   });
 
   it('setValueForPosition', () => {
     // Helper Function
-    function testSet(o, exp, pos, key, value, operator = null) {
-      const mDoc = new MongoObject(o);
+    function testSet(
+      doc: MongoDoc,
+      exp: MongoDoc,
+      pos: string,
+      key: string,
+      value: any,
+      operator: string | null = null,
+    ) {
+      const mDoc = new MongoObject(doc);
       mDoc.setValueForPosition(pos, value);
 
       expect(mDoc.getObject()).toEqual(exp);
@@ -505,49 +609,74 @@ describe('MongoObject', () => {
     testSet({}, { foo: 'bar' }, 'foo', 'foo', 'bar');
 
     // Correctly set nested object
-    testSet({
-      foo: {
-        bar: {},
-      },
-    }, {
-      foo: {
-        bar: {
-          baz: 'baz',
+    testSet(
+      {
+        foo: {
+          bar: {},
         },
       },
-    }, 'foo[bar][baz]', 'foo.bar.baz', 'baz');
+      {
+        foo: {
+          bar: {
+            baz: 'baz',
+          },
+        },
+      },
+      'foo[bar][baz]',
+      'foo.bar.baz',
+      'baz',
+    );
 
     // Should remove descendants
-    testSet({
-      foo: {
-        bar: {
-          baz: 'baz',
+    testSet(
+      {
+        foo: {
+          bar: {
+            baz: 'baz',
+          },
         },
       },
-    }, {
-      foo: {
-        bar: 'bar',
+      {
+        foo: {
+          bar: 'bar',
+        },
       },
-    }, 'foo[bar]', 'foo.bar', 'bar');
+      'foo[bar]',
+      'foo.bar',
+      'bar',
+    );
 
     // Should not set siblings
-    testSet({
-      foo: {
-        bar: 'foobar',
-        foobar: 1,
+    testSet(
+      {
+        foo: {
+          bar: 'foobar',
+          foobar: 1,
+        },
       },
-    }, {
-      foo: {
-        bar: 'baz',
-        foobar: 1,
+      {
+        foo: {
+          bar: 'baz',
+          foobar: 1,
+        },
       },
-    }, 'foo[bar]', 'foo.bar', 'baz');
+      'foo[bar]',
+      'foo.bar',
+      'baz',
+    );
 
     // Correctly set with $set
-    testSet({
-      $set: {
-        bar: 'bar',
+    testSet(
+      {
+        $set: {
+          bar: 'bar',
+        },
       },
-    }, { $set: { bar: 'foo' } }, '$set[bar]', 'bar', 'foo', '$set');
+      { $set: { bar: 'foo' } },
+      '$set[bar]',
+      'bar',
+      'foo',
+      '$set',
+    );
   });
 });

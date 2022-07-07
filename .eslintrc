@@ -1,21 +1,22 @@
 {
-  "extends": "airbnb-base",
-  "env": {
-    "node": true,
-    "mocha": true
-  },
-  "globals": {
-    "expect": false,
-    "describe": false
-  },
+  "parser": "@typescript-eslint/parser",
+  "plugins": ["@typescript-eslint"],
+  "extends": [
+    "airbnb-base",
+    "eslint:recommended",
+    "plugin:@typescript-eslint/recommended"
+  ],
   "rules": {
+    "@typescript-eslint/no-explicit-any": 0,
     "consistent-return": 0,
     "import/no-extraneous-dependencies": [
       "error",
       {
-        "devDependencies": ["**/*.test.js"]
+        "devDependencies": ["**/*.test.js", "**/*.test.ts"]
       }
     ],
+    "import/extensions": 0,
+    "import/no-unresolved": 0,
     "max-len": 0,
     "no-console": 0,
     "no-param-reassign": 0,
