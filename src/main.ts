@@ -1,4 +1,4 @@
-import MongoObject from './mongo-object.js';
+import MongoObject from './mongo-object.js'
 
 export {
   appendAffectedKey,
@@ -9,9 +9,9 @@ export {
   isBasicObject,
   keyToPosition,
   makeKeyGeneric,
-  reportNulls,
-} from './util.js';
+  reportNulls
+} from './util.js'
 
-export { MongoObject };
+export { MongoObject }
 
-export default MongoObject;
+export default MongoObject
