@@ -127,7 +127,13 @@ export function isLength (value: any): boolean {
 }
 
 export function isArrayLike (value: any): boolean {
-  return value != null && typeof value !== 'function' && isLength(value.length)
+  return value != null &&
+    typeof value === 'object' &&
+    isFinite(value.length) &&
+    value.length >= 0 &&
+    value.length === Math.floor(value.length) &&
+    value.length < Number.MAX_SAFE_INTEGER &&
+    Object.keys(value).length - 1 === value.length
 }
 
 export function each (
