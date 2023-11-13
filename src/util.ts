@@ -154,7 +154,7 @@ export function each (
   const iterable = Object(collection)
 
   if (!isArrayLike(collection)) {
-    Object.keys(iterable).forEach((key) => iteratee(iterable[key], key.toString(), iterable))
+    Object.keys(iterable).forEach((key) => iteratee(iterable[key], key, iterable))
     return
   }
 
