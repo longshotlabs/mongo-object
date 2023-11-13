@@ -88,10 +88,10 @@ describe('util', () => {
       const arr = [1, 2, 3]
       const result: any = []
       each(arr, function (item, keyOrIndex, obj) {
-        result.push(item)
+        result.push([keyOrIndex, item])
         return true
       })
-      assert.deepStrictEqual(result, [1, 2, 3])
+      assert.deepStrictEqual(result, [['0', 1], ['1', 2], ['2', 3]])
     })
 
     it('should iterate over an object', function () {
@@ -129,13 +129,13 @@ describe('util', () => {
         return true
       })
       assert.deepStrictEqual(result, [
-        [0, undefined],
-        [1, 'one'],
-        [2, 'two']
+        ['0', undefined],
+        ['1', 'one'],
+        ['2', 'two']
       ])
     })
 
-    it('should stop iteration of array like when iteratee returns false', function () {
+    it('should stop iteration over an array like object when iteratee returns false', function () {
       const arrayLike = {
         0: 'zero',
         1: 'one',
@@ -145,11 +145,11 @@ describe('util', () => {
       const result: any = []
       each(arrayLike, function (item, keyOrIndex, obj) {
         result.push([keyOrIndex, item])
-        if (keyOrIndex === 1) {
+        if (keyOrIndex === '1') {
           return false
         }
       })
-      assert.deepStrictEqual(result, [[0, 'zero'], [1, 'one']])
+      assert.deepStrictEqual(result, [['0', 'zero'], ['1', 'one']])
     })
 
     it('should iterate over an object with length property but not matching quantity of keys', function () {
@@ -205,10 +205,17 @@ describe('util', () => {
         return true
       })
       assert.deepStrictEqual(result, [
-        [0, undefined],
-        [1, 'one'],
-        [2, undefined]
+        ['0', undefined],
+        ['1', 'one'],
+        ['2', undefined]
       ])
+    })
+
+    it('should invoke the function with a string normalized key', function () {
+      each([1, 2, 3], function (item, keyOrIndex, obj) {
+        assert.equal(typeof keyOrIndex, 'string')
+        return true
+      })
     })
   })
 })

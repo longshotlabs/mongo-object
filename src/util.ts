@@ -145,20 +145,22 @@ export function each (
   }
 
   if (Array.isArray(collection)) {
-    collection.forEach(iteratee)
+    collection.forEach((val, index, iterable) => {
+      iteratee(val, index.toString(), iterable)
+    })
     return
   }
 
   const iterable = Object(collection)
 
   if (!isArrayLike(collection)) {
-    Object.keys(iterable).forEach((key) => iteratee(iterable[key], key, iterable))
+    Object.keys(iterable).forEach((key) => iteratee(iterable[key], key.toString(), iterable))
     return
   }
 
   let index = -1
   while (++index < collection.length) {
-    if (iteratee(iterable[index], index, iterable) === false) {
+    if (iteratee(iterable[index], index.toString(), iterable) === false) {
       break
     }
   }
