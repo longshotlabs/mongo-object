@@ -1,17 +1,17 @@
 {
-  "name": "mongo-object",
+  "name": "bls-mongo-object",
   "version": "0.0.0-development",
   "description": "An API for interacting with a MongoDB document or modifier",
   "author": "Eric Dobbertin <eric@dairystatedesigns.com>",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/longshotlabs/node-mongo-object.git"
+    "url": "https://github.com/bugslifesolutions/mongo-object.git"
   },
   "bugs": {
-    "url": "https://github.com/longshotlabs/node-mongo-object/issues"
+    "url": "https://github.com/bugslifesolutions/mongo-object/issues"
   },
-  "homepage": "https://github.com/longshotlabs/node-mongo-object",
+  "homepage": "https://github.com/bugslifesolutions/mongo-object",
   "type": "module",
   "files": [
     "dist",
@@ -70,7 +70,7 @@
       [
         "@semantic-release/github",
         {
-          "successComment": ":tada: This ${issue.pull_request ? 'PR is included' : 'issue has been resolved'} in version ${nextRelease.version} :tada:\n\nThe release is available on:\n- [npm package (@latest dist-tag)](https://www.npmjs.com/package/mongo-object/v/${nextRelease.version})\n- [GitHub release](https://github.com/longshotlabs/node-mongo-object/releases/tag/${nextRelease.version})\n\nIf this makes you happy, please consider [becoming a sponsor](https://github.com/sponsors/aldeed).\n\nYour **[semantic-release](https://github.com/semantic-release/semantic-release)** bot :package::rocket:"
+          "successComment": ":tada: This ${issue.pull_request ? 'PR is included' : 'issue has been resolved'} in version ${nextRelease.version} :tada:\n\nThe release is available on:\n- [npm package (@latest dist-tag)](https://www.npmjs.com/package/bls-mongo-object/v/${nextRelease.version})\n- [GitHub release](https://github.com/bugslifesolutions/mongo-object/releases/tag/${nextRelease.version})\n\nYour **[semantic-release](https://github.com/semantic-release/semantic-release)** bot :package::rocket:"
         }
       ]
     ],
