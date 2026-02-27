@@ -5,7 +5,7 @@
   },
   "compilerOptions": {
     "declaration": true,
-    "module": "es2022",
+    "module": "NodeNext",
     "outDir": "dist/esm"
   }
 }

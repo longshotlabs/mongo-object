@@ -1,4 +1,6 @@
-import expect from 'expect'
+/* eslint-disable @typescript-eslint/no-floating-promises */
+import assert from 'node:assert/strict'
+import { describe, test } from 'node:test'
 
 import MongoObject, {
   GetFlatObjectOptions,
@@ -7,7 +9,7 @@ import MongoObject, {
 } from './mongo-object.js'
 
 describe('MongoObject', () => {
-  it('round trip', () => {
+  test('round trip', () => {
     // Helper Functions
     function passthru (doc: MongoDoc): MongoDoc {
       const mDoc = new MongoObject(doc)
@@ -15,7 +17,7 @@ describe('MongoObject', () => {
     }
 
     function rt (doc: MongoDoc): void {
-      expect(passthru(doc)).toEqual(doc)
+      assert.deepStrictEqual(passthru(doc), doc)
     }
 
     // Round Trip Tests
@@ -42,29 +44,29 @@ describe('MongoObject', () => {
     rt({ string: 't', length: 5 })
   })
 
-  it('typed arrays', () => {
+  test('typed arrays', () => {
     const mo = new MongoObject({ foo: new Uint8Array(10) })
     // We must use non-dot-notation to access private prop and keep TypeScript happy
     // eslint-disable-next-line dot-notation
     // @ts-expect-error private access for testing
-    expect(mo._affectedKeys['foo.0']).toEqual(undefined)
+    assert.deepStrictEqual(mo._affectedKeys['foo.0'], undefined)
   })
 
-  it('forEachNode', () => {
+  test('forEachNode', () => {
     const mo = new MongoObject({ foo: 'k', length: 5 })
     // We must use non-dot-notation to access private prop and keep TypeScript happy
     // eslint-disable-next-line dot-notation
     // @ts-expect-error private access for testing
-    expect(mo._affectedKeys).toEqual({ foo: 'foo', length: 'length' })
+    assert.deepStrictEqual(mo._affectedKeys, { foo: 'foo', length: 'length' })
 
     let count = 0
     mo.forEachNode(() => {
       count += 1
     })
-    expect(count).toEqual(2)
+    assert.deepStrictEqual(count, 2)
   })
 
-  it('flat', () => {
+  test('flat', () => {
     // Helper Functions
     function flat (doc: MongoDoc, opts?: GetFlatObjectOptions): Record<string, any> {
       const mDoc = new MongoObject(doc)
@@ -76,7 +78,7 @@ describe('MongoObject', () => {
       exp: Record<string, any>,
       opts?: GetFlatObjectOptions
     ): void {
-      expect(flat(doc, opts)).toEqual(exp)
+      assert.deepStrictEqual(flat(doc, opts), exp)
     }
 
     // Flatten Tests
@@ -155,12 +157,12 @@ describe('MongoObject', () => {
     )
   })
 
-  it('removeValueForPosition', () => {
+  test('removeValueForPosition', () => {
     // Helper Function
     function testRemove (doc: MongoDoc, exp: MongoDoc, pos: string): void {
       const mDoc = new MongoObject(doc)
       mDoc.removeValueForPosition(pos)
-      expect(mDoc.getObject()).toEqual(exp)
+      assert.deepStrictEqual(mDoc.getObject(), exp)
     }
 
     // correctly removed
@@ -211,11 +213,11 @@ describe('MongoObject', () => {
     )
   })
 
-  it('getValueForPosition', () => {
+  test('getValueForPosition', () => {
     // Helper Function
     function testGetVal (doc: MongoDoc, pos: string, exp: any): void {
       const mDoc = new MongoObject(doc)
-      expect(mDoc.getValueForPosition(pos)).toEqual(exp)
+      assert.deepStrictEqual(mDoc.getValueForPosition(pos), exp)
     }
 
     testGetVal({ $pull: { foo: 'bar' } }, '$pull', { foo: 'bar' })
@@ -233,11 +235,11 @@ describe('MongoObject', () => {
     testGetVal({ foo: [{ a: 1 }, { a: 2 }] }, 'foo[1][a]', 2)
   })
 
-  it('getInfoForKey', () => {
+  test('getInfoForKey', () => {
     // Helper Function
     function testGetInfo (doc: MongoDoc, key: string, exp: KeyInfo | undefined): void {
       const mDoc = new MongoObject(doc)
-      expect(mDoc.getInfoForKey(key)).toEqual(exp)
+      assert.deepStrictEqual(mDoc.getInfoForKey(key), exp)
     }
 
     testGetInfo({ $set: { foo: 'bar' } }, 'foo', {
@@ -277,14 +279,14 @@ describe('MongoObject', () => {
     })
   })
 
-  it('_keyToPosition', () => {
+  test('_keyToPosition', () => {
     // Helper Function
     function convert (key: string, wrapAll: boolean, exp: string): void {
       // We must use non-dot-notation to access private prop and keep TypeScript happy
       // eslint-disable-next-line dot-notation
       // @ts-expect-error private access for testing
       const pos = MongoObject._keyToPosition(key, wrapAll)
-      expect(pos).toEqual(exp)
+      assert.deepStrictEqual(pos, exp)
     }
 
     convert('foo', false, 'foo')
@@ -295,10 +297,10 @@ describe('MongoObject', () => {
     convert('foo.bar.0', true, '[foo][bar][0]')
   })
 
-  it('makeKeyGeneric', () => {
+  test('makeKeyGeneric', () => {
     function testMakeKeyGeneric (input: any, expectedOutput: string | null): void {
       const generic = MongoObject.makeKeyGeneric(input)
-      expect(generic).toEqual(expectedOutput)
+      assert.deepStrictEqual(generic, expectedOutput)
     }
     testMakeKeyGeneric(0, null)
     testMakeKeyGeneric({}, null)
@@ -316,7 +318,7 @@ describe('MongoObject', () => {
     )
   })
 
-  it('docToModifier', () => {
+  test('docToModifier', () => {
     const date = new Date()
 
     const testObj = {
@@ -352,7 +354,7 @@ describe('MongoObject', () => {
       keepArrays: true,
       keepEmptyStrings: true
     })
-    expect(mod).toEqual({
+    assert.deepStrictEqual(mod, {
       $set: {
         a: 1,
         b: 'foo',
@@ -388,7 +390,7 @@ describe('MongoObject', () => {
       keepArrays: true,
       keepEmptyStrings: false
     })
-    expect(mod).toEqual({
+    assert.deepStrictEqual(mod, {
       $set: {
         a: 1,
         b: 'foo',
@@ -424,7 +426,7 @@ describe('MongoObject', () => {
       keepArrays: false,
       keepEmptyStrings: true
     })
-    expect(mod).toEqual({
+    assert.deepStrictEqual(mod, {
       $set: {
         a: 1,
         b: 'foo',
@@ -453,7 +455,7 @@ describe('MongoObject', () => {
       keepArrays: false,
       keepEmptyStrings: false
     })
-    expect(mod).toEqual({
+    assert.deepStrictEqual(mod, {
       $set: {
         a: 1,
         b: 'foo',
@@ -478,10 +480,10 @@ describe('MongoObject', () => {
     })
   })
 
-  it('expandObj', () => {
+  test('expandObj', () => {
     function testExpandObj (val: Record<string, any>, exp: Record<string, any>): void {
       const mod = MongoObject.expandObj(val)
-      expect(mod).toEqual(exp)
+      assert.deepStrictEqual(mod, exp)
     }
 
     testExpandObj({}, {})
@@ -586,7 +588,7 @@ describe('MongoObject', () => {
     )
   })
 
-  it('setValueForPosition', () => {
+  void test('setValueForPosition', () => {
     // Helper Function
     function testSet (
       doc: MongoDoc,
@@ -599,9 +601,9 @@ describe('MongoObject', () => {
       const mDoc = new MongoObject(doc)
       mDoc.setValueForPosition(pos, value)
 
-      expect(mDoc.getObject()).toEqual(exp)
+      assert.deepStrictEqual(mDoc.getObject(), exp)
 
-      expect(mDoc.getInfoForKey(key)).toEqual({
+      assert.deepStrictEqual(mDoc.getInfoForKey(key), {
         operator,
         value
       })

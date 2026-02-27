@@ -32,16 +32,16 @@
   },
   "browserslist": "> 0.5%, last 2 versions, Firefox ESR, not dead",
   "scripts": {
-    "build": "rm -rf dist/** && tsc -p tsconfig.json && tsc -p tsconfig-cjs.json && ./scripts/post-build.sh",
+    "build": "rm -rf dist/** && tsc -p tsconfig-esm-build.json && tsc -p tsconfig-cjs-build.json && ./scripts/post-build.sh",
     "check": "tsc --noEmit",
-    "lint": "eslint . --ext ts,tsx",
-    "lint:fix": "eslint . --fix --ext ts,tsx",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "prepublishOnly": "npm run build",
-    "test": "mocha",
+    "test": "node --import tsx --test",
     "test:watch": "npm test -- --watch"
   },
   "devDependencies": {
-    "@types/mocha": "^10.0.10",
+    "@types/node": "^22",
     "@typescript-eslint/eslint-plugin": "^5.30.7",
     "@typescript-eslint/parser": "^5.30.7",
     "eslint": "^8.20.0",
@@ -52,10 +52,8 @@
     "eslint-plugin-redos": "^4.5.0",
     "eslint-plugin-simple-import-sort": "^7.0.0",
     "eslint-plugin-you-dont-need-lodash-underscore": "^6.14.0",
-    "expect": "^30.2.0",
-    "mocha": "^10.0.0",
     "semantic-release": "^25.0.3",
-    "ts-node": "^10.9.2",
+    "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   },
   "release": {

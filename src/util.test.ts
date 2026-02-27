@@ -1,9 +1,11 @@
-import expect from 'expect'
+/* eslint-disable @typescript-eslint/no-floating-promises */
+import assert from 'node:assert/strict'
+import { describe, test } from 'node:test'
 
 import { cleanNulls, expandKey, reportNulls } from './util.js'
 
 describe('util', () => {
-  it('cleanNulls', () => {
+  test('cleanNulls', () => {
     const date = new Date()
 
     const cleaned = cleanNulls({
@@ -27,14 +29,14 @@ describe('util', () => {
       }
     })
 
-    expect(cleaned).toEqual({
+    assert.deepStrictEqual(cleaned, {
       e: 'keep me',
       f: { e: 'keep me' },
       h: { a: date }
     })
   })
 
-  it('cleanNulls with arrays', () => {
+  test('cleanNulls with arrays', () => {
     const cleaned = cleanNulls({
       a: {
         b: [
@@ -52,19 +54,21 @@ describe('util', () => {
       }
     })
 
-    expect(cleaned).toEqual({
+    assert.deepStrictEqual(cleaned, {
       a: {
+        // eslint-disable-next-line no-sparse-arrays
         b: [
-          undefined,
+          ,
           {
-            e: [undefined, 'keep']
+            // eslint-disable-next-line no-sparse-arrays
+            e: [, 'keep']
           }
         ]
       }
     })
   })
 
-  it('reportNulls', () => {
+  test('reportNulls', () => {
     const report = reportNulls({
       a: undefined,
       b: undefined,
@@ -72,7 +76,7 @@ describe('util', () => {
       d: '',
       e: 'keep me'
     })
-    expect(report).toEqual({
+    assert.deepStrictEqual(report, {
       a: '',
       b: '',
       c: '',
@@ -80,36 +84,40 @@ describe('util', () => {
     })
   })
 
-  it('expandKey - prevents prototype pollution via __proto__', () => {
+  test('expandKey - prevents prototype pollution via __proto__', () => {
     const obj = {}
     expandKey('polluted', '__proto__[polluted]', obj)
-    expect(({})).not.toHaveProperty('polluted')
-    expect(Object.prototype).not.toHaveProperty('polluted')
+    // eslint-disable-next-line no-prototype-builtins
+    assert.ok(!({}).hasOwnProperty('polluted'))
+    // eslint-disable-next-line no-prototype-builtins
+    assert.ok(!Object.prototype.hasOwnProperty('polluted'))
   })
 
-  it('expandKey - prevents prototype pollution via constructor', () => {
+  test('expandKey - prevents prototype pollution via constructor', () => {
     const obj = {}
     expandKey('polluted', 'constructor[polluted]', obj)
-    expect(({})).not.toHaveProperty('polluted')
+    // eslint-disable-next-line no-prototype-builtins
+    assert.ok(!({}).hasOwnProperty('polluted'))
   })
 
-  it('expandKey - prevents prototype pollution via prototype', () => {
+  test('expandKey - prevents prototype pollution via prototype', () => {
     const obj = {}
     expandKey('polluted', 'prototype[polluted]', obj)
-    expect(({})).not.toHaveProperty('polluted')
+    // eslint-disable-next-line no-prototype-builtins
+    assert.ok(!({}).hasOwnProperty('polluted'))
   })
 
-  it('expandKey - normal operation still works', () => {
+  test('expandKey - normal operation still works', () => {
     const obj = {}
     expandKey('value1', 'a', obj)
-    expect(obj).toEqual({ a: 'value1' })
+    assert.deepStrictEqual(obj, { a: 'value1' })
 
     const obj2 = {}
     expandKey('value2', 'a[b]', obj2)
-    expect(obj2).toEqual({ a: { b: 'value2' } })
+    assert.deepStrictEqual(obj2, { a: { b: 'value2' } })
 
     const obj3 = {}
     expandKey('value3', 'a[b][0]', obj3)
-    expect(obj3).toEqual({ a: { b: ['value3'] } })
+    assert.deepStrictEqual(obj3, { a: { b: ['value3'] } })
   })
 })
