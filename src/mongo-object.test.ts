@@ -1,12 +1,10 @@
-import expectPkg from 'expect'
+import expect from 'expect'
 
 import MongoObject, {
   GetFlatObjectOptions,
   KeyInfo,
   MongoDoc
 } from './mongo-object.js'
-
-const expect = expectPkg.default
 
 describe('MongoObject', () => {
   it('round trip', () => {

@@ -1,8 +1,6 @@
-import expectPkg from 'expect'
+import expect from 'expect'
 
 import { cleanNulls, reportNulls } from './util.js'
-
-const expect = expectPkg.default
 
 describe('util', () => {
   it('cleanNulls', () => {
