@@ -5,7 +5,7 @@
   },
   "compilerOptions": {
     "declaration": true,
-    "module": "node16",
+    "module": "es2022",
     "outDir": "dist/esm"
   }
 }
