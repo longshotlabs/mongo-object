@@ -246,6 +246,11 @@ export function expandKey (val: any, key: string, obj: any): void {
       subkey = subkey.slice(0, -1)
     }
 
+    // Prevent prototype pollution
+    if (subkey === '__proto__' || subkey === 'constructor' || subkey === 'prototype') {
+      return
+    }
+
     if (i === ln - 1) {
       // Last iteration; time to set the value; always overwrite
       current[subkey] = val
