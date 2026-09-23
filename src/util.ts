@@ -225,6 +225,15 @@ export function keyToPosition (key: string, wrapAll = false): string {
 }
 
 /**
+ * @param piece One piece of an object path
+ * @returns True if setting a property through this piece could
+ *   modify a prototype (prototype pollution)
+ */
+export function isUnsafeKeyPiece (piece: string): boolean {
+  return piece === '__proto__' || piece === 'constructor' || piece === 'prototype'
+}
+
+/**
  *  Takes a string representation of an object key and its value
  *  and updates "obj" to contain that key with that value.
  *
@@ -247,9 +256,7 @@ export function expandKey (val: any, key: string, obj: any): void {
     }
 
     // Prevent prototype pollution
-    if (subkey === '__proto__' || subkey === 'constructor' || subkey === 'prototype') {
-      return
-    }
+    if (isUnsafeKeyPiece(subkey)) return
 
     if (i === ln - 1) {
       // Last iteration; time to set the value; always overwrite

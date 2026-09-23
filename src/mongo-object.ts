@@ -8,6 +8,7 @@ import {
   isBasicObject,
   isEmpty,
   isObject,
+  isUnsafeKeyPiece,
   keyToPosition,
   makeKeyGeneric,
   reportNulls
@@ -801,6 +802,8 @@ export default class MongoObject {
     Object.keys(doc).forEach((key) => {
       const val = doc[key]
       const subkeys = key.split('.')
+      // Prevent prototype pollution
+      if (subkeys.some(isUnsafeKeyPiece)) return
       const subkeylen = subkeys.length
       let current: any = newDoc
       for (let i = 0; i < subkeylen; i++) {

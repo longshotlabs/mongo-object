@@ -588,6 +588,34 @@ describe('MongoObject', () => {
     )
   })
 
+  test('expandObj - prevents prototype pollution via __proto__', () => {
+    const result = MongoObject.expandObj(JSON.parse('{"__proto__.ppBullseye": "polluted", "a": 1}'))
+    // eslint-disable-next-line no-prototype-builtins
+    assert.ok(!Object.prototype.hasOwnProperty('ppBullseye'))
+    assert.deepStrictEqual(result, { a: 1 })
+  })
+
+  test('expandObj - prevents prototype pollution via constructor.prototype', () => {
+    const result = MongoObject.expandObj({ 'constructor.prototype.ppBullseye': 'polluted', a: 1 })
+    // eslint-disable-next-line no-prototype-builtins
+    assert.ok(!Object.prototype.hasOwnProperty('ppBullseye'))
+    assert.deepStrictEqual(result, { a: 1 })
+  })
+
+  test('expandObj - prevents prototype pollution via nested __proto__', () => {
+    const result = MongoObject.expandObj(JSON.parse('{"a.__proto__.ppBullseye": "polluted", "b": 1}'))
+    // eslint-disable-next-line no-prototype-builtins
+    assert.ok(!Object.prototype.hasOwnProperty('ppBullseye'))
+    assert.deepStrictEqual(result, { b: 1 })
+  })
+
+  test('expandObj - prevents prototype pollution via nested constructor.prototype', () => {
+    const result = MongoObject.expandObj({ 'a.constructor.prototype.ppBullseye': 'polluted', b: 1 })
+    // eslint-disable-next-line no-prototype-builtins
+    assert.ok(!Object.prototype.hasOwnProperty('ppBullseye'))
+    assert.deepStrictEqual(result, { b: 1 })
+  })
+
   void test('setValueForPosition', () => {
     // Helper Function
     function testSet (
