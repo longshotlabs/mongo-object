@@ -4,11 +4,7 @@
     "declaration": true,
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "outDir": "dist/esm",
+    "outDir": "dist/esm"
   },
-  "exclude": [
-    "node_modules",
-    "dist",
-    "src/**/*.test.ts"
-  ],
+  "exclude": ["node_modules", "dist", "src/**/*.test.ts"]
 }

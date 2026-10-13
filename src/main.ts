@@ -1,4 +1,4 @@
-import MongoObject from './mongo-object.js'
+import MongoObject from './mongo-object.ts'
 
 export {
   appendAffectedKey,
@@ -10,7 +10,7 @@ export {
   keyToPosition,
   makeKeyGeneric,
   reportNulls
-} from './util.js'
+} from './util.ts'
 
 export { MongoObject }
 

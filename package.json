@@ -2,22 +2,22 @@
   "name": "mongo-object",
   "version": "0.0.0-development",
   "description": "An API for interacting with a MongoDB document or modifier",
-  "author": "Eric Dobbertin <eric@dairystatedesigns.com>",
+  "homepage": "https://github.com/longshotlabs/mongo-object",
+  "bugs": {
+    "url": "https://github.com/longshotlabs/mongo-object/issues"
+  },
   "license": "MIT",
+  "author": "Eric Dobbertin <eric@dairystatedesigns.com>",
   "repository": {
     "type": "git",
     "url": "https://github.com/longshotlabs/mongo-object.git"
   },
-  "bugs": {
-    "url": "https://github.com/longshotlabs/mongo-object/issues"
-  },
-  "homepage": "https://github.com/longshotlabs/mongo-object",
-  "type": "module",
   "files": [
     "dist",
     "LICENSE",
     "README.md"
   ],
+  "type": "module",
   "main": "./dist/cjs/main.js",
   "module": "./dist/esm/main.js",
   "types": "./dist/esm/main.d.ts",
@@ -27,35 +27,26 @@
       "require": "./dist/cjs/main.js"
     }
   },
-  "engines": {
-    "node": ">=20"
+  "publishConfig": {
+    "access": "public"
   },
-  "browserslist": "> 0.5%, last 2 versions, Firefox ESR, not dead",
   "scripts": {
     "build": "rm -rf dist/** && tsc -p tsconfig-esm-build.json && tsc -p tsconfig-cjs-build.json && ./scripts/post-build.sh",
     "check": "tsc --noEmit",
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
+    "lint": "oxlint . && oxfmt --check .",
+    "lint:fix": "oxlint --fix . && oxfmt --write .",
     "prepublishOnly": "npm run build",
-    "test": "node --import tsx --test",
-    "test:watch": "npm test -- --watch"
+    "test": "node --test src/*.test.ts",
+    "test:watch": "node --test --watch src/*.test.ts"
   },
   "devDependencies": {
-    "@types/node": "^22",
-    "@typescript-eslint/eslint-plugin": "^5.30.7",
-    "@typescript-eslint/parser": "^5.30.7",
-    "eslint": "^8.20.0",
-    "eslint-config-standard-with-typescript": "^22.0.0",
-    "eslint-plugin-import": "^2.32.0",
-    "eslint-plugin-node": "^11.1.0",
-    "eslint-plugin-promise": "^6.0.0",
-    "eslint-plugin-redos": "^4.5.0",
-    "eslint-plugin-simple-import-sort": "^7.0.0",
-    "eslint-plugin-you-dont-need-lodash-underscore": "^6.14.0",
-    "semantic-release": "^25.0.9",
-    "tsx": "^4.23.15",
-    "typescript": "^5.9.3"
+    "@types/node": "^26.2.0",
+    "oxfmt": "^0.63.0",
+    "oxlint": "^1.78.0",
+    "semantic-release": "25.0.9",
+    "typescript": "^7.0.2"
   },
+  "browserslist": "> 0.5%, last 2 versions, Firefox ESR, not dead",
   "release": {
     "branches": [
       "main"
@@ -73,11 +64,7 @@
     ],
     "tagFormat": "${version}"
   },
-  "publishConfig": {
-    "access": "public"
-  },
-  "allowScripts": {
-    "esbuild@0.28.1": true,
-    "fsevents@2.3.3": true
+  "engines": {
+    "node": ">=20"
   }
 }

@@ -2,7 +2,7 @@
 const MAX_SAFE_INTEGER = 9007199254740991
 
 // Define data properties without invoking inherited setters such as __proto__.
-function setOwn (obj: Record<string, any> | any[], key: string, value: any): void {
+function setOwn(obj: Record<string, any> | any[], key: string, value: any): void {
   Object.defineProperty(obj, key, {
     configurable: true,
     enumerable: true,
@@ -18,7 +18,7 @@ function setOwn (obj: Record<string, any> | any[], key: string, value: any): voi
  * @returns An object in which all properties with null, undefined, or empty
  *   string values have been removed, recursively.
  */
-export function cleanNulls (
+export function cleanNulls(
   doc: Record<string, any>,
   isArray = false,
   keepEmptyStrings = false
@@ -34,11 +34,7 @@ export function cleanNulls (
       if (!isEmpty(val)) setOwn(newDoc, key, val)
     } else if (!isNullUndefinedOrEmptyString(val)) {
       setOwn(newDoc, key, val)
-    } else if (
-      keepEmptyStrings &&
-      typeof val === 'string' &&
-      val.length === 0
-    ) {
+    } else if (keepEmptyStrings && typeof val === 'string' && val.length === 0) {
       setOwn(newDoc, key, val)
     }
   })
@@ -50,7 +46,7 @@ export function cleanNulls (
  * @returns True if obj is an Object as opposed to
  *   something that inherits from Object
  */
-export function isBasicObject (obj: any): boolean {
+export function isBasicObject(obj: any): boolean {
   return obj === Object(obj) && Object.getPrototypeOf(obj) === Object.prototype
 }
 
@@ -62,7 +58,7 @@ export function isBasicObject (obj: any): boolean {
  *   original object that were null, undefined, or empty strings, and the value
  *   of each key is "".
  */
-export function reportNulls (
+export function reportNulls(
   flatDoc: Record<string, string | number | boolean | null | undefined>,
   keepEmptyStrings = false
 ): Record<string, string> {
@@ -77,8 +73,7 @@ export function reportNulls (
       (!keepEmptyStrings && typeof val === 'string' && val.length === 0) ||
       // If value is an array in which all the values recursively are undefined, null,
       // or an empty string
-      (Array.isArray(val) &&
-        (cleanNulls(val, true, keepEmptyStrings) as any[]).length === 0)
+      (Array.isArray(val) && (cleanNulls(val, true, keepEmptyStrings) as any[]).length === 0)
     ) {
       setOwn(nulls, key, '')
     }
@@ -86,24 +81,21 @@ export function reportNulls (
   return nulls
 }
 
-export function appendAffectedKey (
+export function appendAffectedKey(
   affectedKey: string | null | undefined,
   key: string
 ): string | null | undefined {
   if (key === '$each') return affectedKey
-  return (affectedKey != null && affectedKey.length > 0) ? `${affectedKey}.${key}` : key
+  return affectedKey != null && affectedKey.length > 0 ? `${affectedKey}.${key}` : key
 }
 
 // Extracts operator piece, if present, from position string
-export function extractOp (position: string): string | null {
+export function extractOp(position: string): string | null {
   const firstPositionPiece = position.slice(0, position.indexOf('['))
   return firstPositionPiece.substring(0, 1) === '$' ? firstPositionPiece : null
 }
 
-export function genericKeyAffectsOtherGenericKey (
-  key: string,
-  affectedKey: string
-): boolean {
+export function genericKeyAffectsOtherGenericKey(key: string, affectedKey: string): boolean {
   // If the affected key is the test key
   if (affectedKey === key) return true
 
@@ -119,28 +111,19 @@ export function genericKeyAffectsOtherGenericKey (
   return false
 }
 
-export function isNullUndefinedOrEmptyString (val: any): boolean {
-  return (
-    val === undefined ||
-    val === null ||
-    (typeof val === 'string' && val.length === 0)
-  )
+export function isNullUndefinedOrEmptyString(val: any): boolean {
+  return val === undefined || val === null || (typeof val === 'string' && val.length === 0)
 }
 
-export function isLength (value: any): boolean {
-  return (
-    typeof value === 'number' &&
-    value > -1 &&
-    value % 1 === 0 &&
-    value <= MAX_SAFE_INTEGER
-  )
+export function isLength(value: any): boolean {
+  return typeof value === 'number' && value > -1 && value % 1 === 0 && value <= MAX_SAFE_INTEGER
 }
 
-export function isArrayLike (value: any): boolean {
+export function isArrayLike(value: any): boolean {
   return value != null && typeof value !== 'function' && isLength(value.length)
 }
 
-export function each (
+export function each(
   collection: any,
   iteratee: (item: any, keyOrIndex: number | string, obj: any) => boolean | undefined
 ): void {
@@ -168,7 +151,7 @@ export function each (
   }
 }
 
-export function isPrototype (value: unknown): boolean {
+export function isPrototype(value: unknown): boolean {
   const Ctor = value?.constructor
   if (typeof Ctor !== 'function' || Ctor.prototype === undefined) {
     return value === Object.prototype
@@ -176,7 +159,7 @@ export function isPrototype (value: unknown): boolean {
   return value === Ctor.prototype
 }
 
-export function isEmpty (value: any): boolean {
+export function isEmpty(value: any): boolean {
   if (value === null || value === undefined) {
     return true
   }
@@ -193,8 +176,6 @@ export function isEmpty (value: any): boolean {
   if (isPrototype(value)) {
     return Object.keys(value).length === 0
   }
-
-  // eslint-disable-next-line no-restricted-syntax
   for (const key in value) {
     if (Object.hasOwnProperty.call(value, key)) {
       return false
@@ -204,7 +185,7 @@ export function isEmpty (value: any): boolean {
   return true
 }
 
-export function isObject (value: any): boolean {
+export function isObject(value: any): boolean {
   const type = typeof value
   return value != null && (type === 'object' || type === 'function')
 }
@@ -217,12 +198,12 @@ export function isObject (value: any): boolean {
  * @param key A specific or generic key
  * @returns Generic name.
  */
-export function makeKeyGeneric (key: string): string | null {
+export function makeKeyGeneric(key: string): string | null {
   if (typeof key !== 'string') return null
   return key.replace(/\.([0-9]+|\$\[[^\]]*\])(?=\.|$)/g, '.$')
 }
 
-export function keyToPosition (key: string, wrapAll = false): string {
+export function keyToPosition(key: string, wrapAll = false): string {
   let position = ''
   key.split('.').forEach((piece, i) => {
     if (i === 0 && !wrapAll) {
@@ -239,7 +220,7 @@ export function keyToPosition (key: string, wrapAll = false): string {
  * @returns True if setting a property through this piece could
  *   modify a prototype (prototype pollution)
  */
-export function isUnsafeKeyPiece (piece: string): boolean {
+export function isUnsafeKeyPiece(piece: string): boolean {
   return piece === '__proto__' || piece === 'constructor' || piece === 'prototype'
 }
 
@@ -256,8 +237,8 @@ export function isUnsafeKeyPiece (piece: string): boolean {
  * @param key Key
  * @param obj Object
  */
-export function expandKey (val: any, key: string, obj: any): void {
-  const subkeys = key.split('[').map((piece) => piece.endsWith(']') ? piece.slice(0, -1) : piece)
+export function expandKey(val: any, key: string, obj: any): void {
+  const subkeys = key.split('[').map((piece) => (piece.endsWith(']') ? piece.slice(0, -1) : piece))
   if (subkeys.some(isUnsafeKeyPiece)) return
   let current = obj
   for (let i = 0, ln = subkeys.length; i < ln; i++) {
@@ -268,7 +249,6 @@ export function expandKey (val: any, key: string, obj: any): void {
       current[subkey] = val
 
       // If val is undefined, delete the property
-      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
       if (val === undefined) delete current[subkey]
     } else {
       // See if the next piece is a number

@@ -1,8 +1,7 @@
-/* eslint-disable @typescript-eslint/no-floating-promises */
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 
-import MongoObject from './mongo-object.js'
+import MongoObject from './mongo-object.ts'
 
 interface NodeContext {
   position: string
@@ -16,7 +15,7 @@ class CountingMongoObject extends MongoObject {
   // Counts reparses after construction.
   reparses = 0
 
-  _reParseObj (): void {
+  _reParseObj(): void {
     super._reParseObj()
     this.reparses = (this.reparses ?? 0) + 1
   }
@@ -25,14 +24,20 @@ class CountingMongoObject extends MongoObject {
 describe('performance regressions', () => {
   test('queued structural updates reparse once and scalar updates need no reparse', () => {
     const mo = new CountingMongoObject({ a: 1, b: 2, c: 3 })
-    mo.forEachNode(function (this: NodeContext) { this.updateValue(Number(this.value) + 1) })
+    mo.forEachNode(function (this: NodeContext) {
+      this.updateValue(Number(this.value) + 1)
+    })
     assert.equal(mo.reparses, 0)
     assert.deepStrictEqual(mo.getFlatObject(), { a: 2, b: 3, c: 4 })
-    mo.forEachNode(function (this: NodeContext) { this.updateValue({ nested: this.value }) })
+    mo.forEachNode(function (this: NodeContext) {
+      this.updateValue({ nested: this.value })
+    })
     assert.equal(mo.reparses, 1)
     assert.deepStrictEqual(mo.getFlatObject(), { 'a.nested': 2, 'b.nested': 3, 'c.nested': 4 })
     assert.equal(mo.getPositionForKey('c.nested'), 'c[nested]')
-    mo.forEachNode(function (this: NodeContext) { this.remove() })
+    mo.forEachNode(function (this: NodeContext) {
+      this.remove()
+    })
     assert.equal(mo.reparses, 2)
     assert.deepStrictEqual(mo.getFlatObject(), { a: {}, b: {}, c: {} })
     assert.equal(mo.getPositionForKey('c.nested'), undefined)
@@ -60,9 +65,12 @@ describe('performance regressions', () => {
   test('overlapping parent and child updates retain their application order', () => {
     for (const parentValue of [{}, undefined, 'scalar', []]) {
       const mo = new CountingMongoObject({ parent: { child: 1 } })
-      mo.forEachNode(function (this: NodeContext) {
-        this.updateValue(this.position === 'parent' ? parentValue : 2)
-      }, { endPointsOnly: false })
+      mo.forEachNode(
+        function (this: NodeContext) {
+          this.updateValue(this.position === 'parent' ? parentValue : 2)
+        },
+        { endPointsOnly: false }
+      )
       assert.equal(mo.reparses, 1)
       if (parentValue === 'scalar') {
         assert.deepStrictEqual(mo.getFlatObject(), { parent: 'scalar' })
@@ -83,7 +91,9 @@ describe('performance regressions', () => {
     Object.defineProperty(doc, 'b', { writable: false, configurable: true })
     const mo = new CountingMongoObject(doc)
     assert.throws(() => {
-      mo.forEachNode(function (this: NodeContext) { this.updateValue({ child: this.value }) })
+      mo.forEachNode(function (this: NodeContext) {
+        this.updateValue({ child: this.value })
+      })
     }, TypeError)
     assert.equal(mo.reparses, 1)
     assert.deepStrictEqual(mo.getFlatObject(), { 'a.child': 1, b: 2 })
@@ -127,11 +137,14 @@ describe('performance regressions', () => {
   })
 
   test('set membership preserves endpoints, blackboxes, and keepArrays behavior', () => {
-    const mo = new CountingMongoObject({
-      opaque: { hidden: 1 },
-      empty: {},
-      items: [{ child: 2 }, []]
-    }, ['opaque'])
+    const mo = new CountingMongoObject(
+      {
+        opaque: { hidden: 1 },
+        empty: {},
+        items: [{ child: 2 }, []]
+      },
+      ['opaque']
+    )
     const visited: Array<[string, boolean]> = []
     mo.forEachNode(function (this: NodeContext) {
       visited.push([this.position, this.isArrayItem])
@@ -139,14 +152,22 @@ describe('performance regressions', () => {
       if (this.position === 'opaque') this.updateValue({ hidden: 4 })
     })
     assert.deepStrictEqual(visited, [
-      ['opaque', false], ['empty', false], ['items[0][child]', false], ['items[1]', true]
+      ['opaque', false],
+      ['empty', false],
+      ['items[0][child]', false],
+      ['items[1]', true]
     ])
     assert.equal(mo.reparses, 1)
     assert.deepStrictEqual(mo.getFlatObject(), {
-      opaque: { hidden: 4 }, 'empty.child': 3, 'items.0.child': 2, 'items.1': []
+      opaque: { hidden: 4 },
+      'empty.child': 3,
+      'items.0.child': 2,
+      'items.1': []
     })
     assert.deepStrictEqual(mo.getFlatObject({ keepArrays: true }), {
-      opaque: { hidden: 4 }, 'empty.child': 3, items: [{ child: 2 }, []]
+      opaque: { hidden: 4 },
+      'empty.child': 3,
+      items: [{ child: 2 }, []]
     })
     assert.equal(mo.getPositionForKey('opaque.hidden'), undefined)
   })
@@ -154,18 +175,28 @@ describe('performance regressions', () => {
   test('queued unsafe paths remain rejected without prototype changes', () => {
     const doc = JSON.parse('{"__proto__": {"ppBullseye": 1}, "constructor": 2, "safe": 3}')
     const mo = new CountingMongoObject(doc)
-    mo.forEachNode(function (this: NodeContext) { this.updateValue({ updated: true }) })
+    mo.forEachNode(function (this: NodeContext) {
+      this.updateValue({ updated: true })
+    })
     assert.equal(mo.reparses, 1)
     assert.equal(Object.hasOwn(Object.prototype, 'ppBullseye'), false)
     assert.equal(Object.getPrototypeOf(doc), Object.prototype)
-    assert.deepStrictEqual(doc, JSON.parse('{"__proto__": {"ppBullseye": 1}, "constructor": 2, "safe": {"updated": true}}'))
+    assert.deepStrictEqual(
+      doc,
+      JSON.parse('{"__proto__": {"ppBullseye": 1}, "constructor": 2, "safe": {"updated": true}}')
+    )
   })
 
   test('position-only lookup retains fallback and order without reading values', () => {
     const mo = new MongoObject({ $push: { items: 1 }, $set: { 'items.0': 2 } })
-    mo.getValueForPosition = () => { throw new Error('unexpected value lookup') }
+    mo.getValueForPosition = () => {
+      throw new Error('unexpected value lookup')
+    }
     assert.deepStrictEqual(mo.getPositionsForGenericKey('items'), ['$push[items]', '$set[items.0]'])
-    assert.deepStrictEqual(mo.getPositionsForGenericKey('items.$'), ['$push[items]', '$set[items.0]'])
+    assert.deepStrictEqual(mo.getPositionsForGenericKey('items.$'), [
+      '$push[items]',
+      '$set[items.0]'
+    ])
     assert.deepStrictEqual(mo.getPositionsForGenericKey('missing'), [])
     const positions = mo.getPositionsForGenericKey('items')
     positions.length = 0

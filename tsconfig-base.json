@@ -6,14 +6,13 @@
     "moduleResolution": "NodeNext",
     "skipLibCheck": true,
     "strict": true,
-    "target": "es2022"
+    "target": "es2022",
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
+    "types": ["node"],
+    "rootDir": "src"
   },
   "compileOnSave": false,
-  "exclude": [
-    "node_modules",
-    "dist"
-  ],
-  "include": [
-    "src"
-  ]
+  "exclude": ["node_modules", "dist"],
+  "include": ["src"]
 }
