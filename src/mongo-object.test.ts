@@ -57,7 +57,7 @@ describe('MongoObject', () => {
     // We must use non-dot-notation to access private prop and keep TypeScript happy
     // eslint-disable-next-line dot-notation
     // @ts-expect-error private access for testing
-    assert.deepStrictEqual(mo._affectedKeys, { foo: 'foo', length: 'length' })
+    assert.deepStrictEqual({ ...mo._affectedKeys }, { foo: 'foo', length: 'length' })
 
     let count = 0
     mo.forEachNode(() => {
@@ -277,6 +277,125 @@ describe('MongoObject', () => {
       value: { a: 2 },
       operator: null
     })
+  })
+
+  test('key lookup preserves the first position and stays current after mutations', () => {
+    const mo = new MongoObject({ $set: { foo: 1 }, $unset: { foo: '' } })
+    assert.equal(mo.getPositionForKey('foo'), '$set[foo]')
+    mo.setValueForPosition('$unset[foo]', 'changed')
+    assert.equal(mo.getPositionForKey('foo'), '$set[foo]')
+    mo.removeValueForPosition('$set[foo]')
+    assert.equal(mo.getPositionForKey('foo'), '$unset[foo]')
+    mo.setValueForPosition('$set[foo]', { bar: 2 })
+    assert.equal(mo.getPositionForKey('foo'), '$set[foo]')
+    assert.equal(mo.getPositionForKey('foo.bar'), '$set[foo][bar]')
+    mo.setValueForPosition('$set[foo]', 3)
+    assert.equal(mo.getPositionForKey('foo.bar'), undefined)
+    mo.removeKey('foo')
+    assert.equal(mo.getPositionForKey('foo'), undefined)
+    assert.equal(mo.getPositionForKey('missing'), undefined)
+  })
+
+  test('key lookup preserves integer property order', () => {
+    const mo = new MongoObject({ $set: { 0: 'modifier' } })
+    mo.setValueForPosition('0', 'document')
+    assert.equal(mo.getPositionForKey('0'), '0')
+  })
+
+  test('key lookup tracks adjusted array operators and array compaction', () => {
+    const mo = new MongoObject({ $push: { foo: 1 } })
+    mo.setValueForPosition('$push[foo]', 2)
+    assert.equal(mo.getPositionForKey('foo.0'), '$push[foo]')
+    assert.equal(mo.getPositionForKey('foo'), undefined)
+    mo.setValueForPosition('$push[foo]', { $each: [{ bar: 1 }] })
+    assert.equal(mo.getPositionForKey('foo.0.bar'), '$push[foo][$each][0][bar]')
+
+    const arrayDoc = new MongoObject({ items: [{ a: 1 }, { b: 2 }] })
+    arrayDoc.removeValueForPosition('items[0]')
+    assert.equal(arrayDoc.getPositionForKey('items.0.a'), undefined)
+    arrayDoc.removeArrayItems()
+    assert.equal(arrayDoc.getPositionForKey('items.0.b'), 'items[0][b]')
+    assert.equal(arrayDoc.getPositionForKey('items.1.b'), undefined)
+  })
+
+  test('prototype property names are safe in parsed documents and lookup indexes', () => {
+    const names = ['__proto__', 'constructor', 'prototype', 'toString', 'hasOwnProperty']
+    const empty = new MongoObject({})
+    for (const key of names) {
+      assert.equal(empty.getPositionForKey(key), undefined)
+      assert.equal(empty.getKeyForPosition(key), undefined)
+      assert.deepStrictEqual(empty.getPositionsForGenericKey(key), [])
+      assert.deepStrictEqual(empty.getPositionsThatCreateGenericKey(key), [])
+    }
+
+    const doc = JSON.parse('{"__proto__": "data", "constructor": 1, "prototype": 2, "toString": 3, "hasOwnProperty": 4}')
+    const mo = new MongoObject(doc)
+    for (const key of names) {
+      assert.equal(mo.getPositionForKey(key), key)
+      assert.deepStrictEqual(mo.getPositionsForGenericKey(key), [key])
+    }
+    assert.deepStrictEqual(mo.getFlatObject(), doc)
+    assert.equal(Object.getPrototypeOf(mo.getFlatObject()), Object.prototype)
+    assert.deepStrictEqual(MongoObject.docToModifier(doc), { $set: doc })
+
+    const modifier = new MongoObject({ $set: { 'constructor.child': 1, '__proto__.child': 2 } })
+    assert.equal(modifier.getPositionsThatCreateGenericKey('constructor')[0].position, '$set[constructor.child]')
+    assert.equal(modifier.getPositionsThatCreateGenericKey('__proto__')[0].position, '$set[__proto__.child]')
+  })
+
+  test('setValueForPosition rejects unsafe paths before making any changes', () => {
+    for (const position of [
+      '__proto__[ppBullseye]',
+      'constructor[prototype][ppBullseye]',
+      'safe[__proto__][ppBullseye]',
+      'safe[constructor][prototype][ppBullseye]',
+      'safe[prototype][ppBullseye]',
+      'safe[__proto__]',
+      'safe[constructor]',
+      'safe[prototype]'
+    ]) {
+      for (const value of ['polluted', { ppBullseye: true }, undefined]) {
+        const doc = { existing: 1 }
+        const mo = new MongoObject(doc)
+        mo.setValueForPosition(position, value)
+        assert.deepStrictEqual(doc, { existing: 1 })
+        assert.equal(Object.getPrototypeOf(doc), Object.prototype)
+        assert.equal(Object.hasOwn(Object.prototype, 'ppBullseye'), false)
+        assert.equal(mo.getKeyForPosition(position), undefined)
+      }
+    }
+    const mo = new MongoObject({})
+    mo.addKey('__proto__.ppBullseye', 'polluted', null)
+    mo.addKey('constructor.prototype.ppBullseye', 'polluted', null)
+    assert.deepStrictEqual(mo.getObject(), {})
+  })
+
+  test('position access only traverses own properties', () => {
+    const inherited = { child: { value: 1 } }
+    const doc = Object.create(inherited)
+    const mo = new MongoObject(doc)
+    assert.equal(mo.getValueForPosition('child[value]'), undefined)
+    mo.removeValueForPosition('child[value]')
+    assert.deepStrictEqual(inherited, { child: { value: 1 } })
+    mo.setValueForPosition('child[value]', 2)
+    assert.deepStrictEqual(inherited, { child: { value: 1 } })
+    assert.deepStrictEqual(doc.child, { value: 2 })
+    assert.equal(mo.getValueForPosition('__proto__'), undefined)
+  })
+
+  test('adding to empty containers refreshes flattening and node metadata', () => {
+    const mo = new MongoObject({ flex: { dev: {} }, items: [] })
+    mo.setValueForPosition('flex[dev][key]', 'test')
+    mo.setValueForPosition('items[0]', 'item')
+    assert.deepStrictEqual(mo.getFlatObject(), { 'flex.dev.key': 'test', 'items.0': 'item' })
+    assert.deepStrictEqual(mo.getFlatObject({ keepArrays: true }), { 'flex.dev.key': 'test', items: ['item'] })
+    assert.deepStrictEqual(mo.getPositionsForGenericKey('flex.dev.key'), ['flex[dev][key]'])
+    assert.deepStrictEqual(mo.getPositionsForGenericKey('items.$'), ['items[0]'])
+    let count = 0
+    mo.forEachNode(() => { count++ })
+    assert.equal(count, 2)
+    mo.removeValueForPosition('flex[dev][key]')
+    assert.deepStrictEqual(mo.getFlatObject(), { 'flex.dev': {}, 'items.0': 'item' })
   })
 
   test('_keyToPosition', () => {
@@ -614,6 +733,16 @@ describe('MongoObject', () => {
     // eslint-disable-next-line no-prototype-builtins
     assert.ok(!Object.prototype.hasOwnProperty('ppBullseye'))
     assert.deepStrictEqual(result, { b: 1 })
+  })
+
+  test('expandObj does not traverse inherited prototype functions', () => {
+    try {
+      const expanded = MongoObject.expandObj({ 'toString.ppBullseye': 'data' })
+      assert.equal(Object.hasOwn(Object.prototype.toString, 'ppBullseye'), false)
+      assert.deepStrictEqual(expanded, { toString: { ppBullseye: 'data' } })
+    } finally {
+      Reflect.deleteProperty(Object.prototype.toString, 'ppBullseye')
+    }
   })
 
   void test('setValueForPosition', () => {

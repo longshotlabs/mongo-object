@@ -54,13 +54,15 @@ interface MongoUpdateDoc {
 }
 
 export default class MongoObject {
-  private _affectedKeys: Record<string, string | null | undefined> = {}
+  private _affectedKeys: Record<string, string | null | undefined> = Object.create(null)
+
+  private readonly _affectedPositions = new Map<string, string>()
 
   private _arrayItemPositions: string[] = []
 
   private readonly _blackboxKeys: string[] = []
 
-  private _genericAffectedKeys: Record<string, string | null> = {}
+  private _genericAffectedKeys: Record<string, string | null> = Object.create(null)
 
   private readonly _obj: MongoDoc
 
@@ -68,11 +70,11 @@ export default class MongoObject {
 
   private _parentPositions: string[] = []
 
-  private _positionsByGenericKey: Record<string, PositionInfo[]> = {}
+  private _positionsByGenericKey: Record<string, PositionInfo[]> = Object.create(null)
 
   private _positionsInsideArrays: string[] = []
 
-  private _positionsThatCreateGenericKey: Record<string, PositionInfo[]> = {}
+  private _positionsThatCreateGenericKey: Record<string, PositionInfo[]> = Object.create(null)
 
   /*
    * @constructor
@@ -94,10 +96,11 @@ export default class MongoObject {
   _reParseObj (): void {
     const blackboxKeys = this._blackboxKeys
 
-    this._affectedKeys = {}
-    this._genericAffectedKeys = {}
-    this._positionsByGenericKey = {}
-    this._positionsThatCreateGenericKey = {}
+    this._affectedKeys = Object.create(null)
+    this._affectedPositions.clear()
+    this._genericAffectedKeys = Object.create(null)
+    this._positionsByGenericKey = Object.create(null)
+    this._positionsThatCreateGenericKey = Object.create(null)
     this._parentPositions = []
     this._positionsInsideArrays = []
     this._objectPositions = []
@@ -255,6 +258,15 @@ export default class MongoObject {
     }
 
     parseObj(this, this._obj)
+
+    // Preserve the original property enumeration order, including integer keys,
+    // and the first position when multiple operators affect the same key.
+    Object.keys(this._affectedKeys).forEach((position) => {
+      const key = this._affectedKeys[position]
+      if (key != null && !this._affectedPositions.has(key)) {
+        this._affectedPositions.set(key, position)
+      }
+    })
   }
 
   /**
@@ -273,7 +285,7 @@ export default class MongoObject {
   forEachNode (func: () => void, { endPointsOnly = true } = {}): void {
     if (typeof func !== 'function') throw new Error('filter requires a loop function')
 
-    const updatedValues: Record<string, any> = {}
+    const updatedValues: Record<string, any> = Object.create(null)
     Object.keys(this._affectedKeys).forEach((position) => {
       if (endPointsOnly && this._parentPositions.includes(position)) return // Only endpoints
       func.call({
@@ -307,6 +319,7 @@ export default class MongoObject {
 
       // If the subkey ends in ']', remove the ending
       if (subkey.slice(-1) === ']') subkey = subkey.slice(0, -1)
+      if (!Object.hasOwn(current, subkey)) return
       current = current[subkey]
       if (!Array.isArray(current) && !isBasicObject(current) && i < ln - 1) return
     }
@@ -320,18 +333,20 @@ export default class MongoObject {
    * @param value
    */
   setValueForPosition (position: string, value: any): void {
-    const subkeys = position.split('[')
+    const subkeys = position.split('[').map((piece) => piece.endsWith(']') ? piece.slice(0, -1) : piece)
+    // Validate the entire path before creating or changing any properties.
+    if (subkeys.some(isUnsafeKeyPiece)) return
     let current: any = this._obj
     const ln = subkeys.length
 
     let createdObjectsOrArrays = false
+    let replacedObjectOrArray = false
+    const isNewPosition = !Object.hasOwn(this._affectedKeys, position)
+    const previousAffectedKey = this._affectedKeys[position]
     let affectedKey: string | null | undefined = ''
 
     for (let i = 0; i < ln; i++) {
-      let subkey = subkeys[i]
-
-      // If the subkey ends in "]", remove the ending
-      if (subkey.slice(-1) === ']') subkey = subkey.slice(0, -1)
+      const subkey = subkeys[i]
 
       // We don't store modifiers
       if (subkey.length > 0 && subkey.substring(0, 1) !== '$') {
@@ -341,6 +356,8 @@ export default class MongoObject {
       // If we've reached the key in the object tree that needs setting or
       // deleting, do it.
       if (i === ln - 1) {
+        const previousValue = Object.hasOwn(current, subkey) ? current[subkey] : undefined
+        replacedObjectOrArray = Array.isArray(previousValue) || isBasicObject(previousValue)
         // If value is undefined, delete the property
         if (value === undefined) {
           if (Array.isArray(current)) {
@@ -360,14 +377,18 @@ export default class MongoObject {
         // Otherwise attempt to keep moving deeper into the object.
         // If we're setting (as opposed to deleting) a key and we hit a place
         // in the ancestor chain where the keys are not yet created, create them.
-        if (current[subkey] === undefined && value !== undefined) {
+        if ((!Object.hasOwn(current, subkey) || current[subkey] === undefined) && value !== undefined) {
           // See if the next piece is a number
           const nextPiece = subkeys[i + 1]
           current[subkey] = Number.isNaN(parseInt(nextPiece, 10)) ? {} : []
           createdObjectsOrArrays = true
+        } else if (Object.hasOwn(current, subkey) && isEmpty(current[subkey])) {
+          // Empty containers were endpoints until this mutation.
+          createdObjectsOrArrays = true
         }
 
         // Move deeper into the object
+        if (!Object.hasOwn(current, subkey)) return
         current = current[subkey]
 
         // If we can go no further, then quit
@@ -375,9 +396,13 @@ export default class MongoObject {
       }
     }
 
-    // If there are now new arrays or objects in the main object, we need to reparse it
+    // Structural changes require refreshing all indexes and endpoint metadata.
     if (
       createdObjectsOrArrays ||
+      replacedObjectOrArray ||
+      isNewPosition ||
+      previousAffectedKey !== affectedKey ||
+      value === undefined ||
       Array.isArray(value) ||
       isBasicObject(value)
     ) {
@@ -443,14 +468,7 @@ export default class MongoObject {
    *   Example: 'foo[bar][0]'
    */
   getPositionForKey (key: string): string | undefined {
-    const positions = Object.getOwnPropertyNames(this._affectedKeys)
-    for (let index = 0; index < positions.length; index++) {
-      const position = positions[index]
-      // We return the first one we find. While it's
-      // possible that multiple update operators could
-      // affect the same non-generic key, we'll assume that's not the case.
-      if (this._affectedKeys[position] === key) return position
-    }
+    return this._affectedPositions.get(key)
   }
 
   /**
@@ -626,6 +644,7 @@ export default class MongoObject {
     }
 
     traverse(this._obj)
+    this._reParseObj()
   }
 
   /**
@@ -664,7 +683,12 @@ export default class MongoObject {
           (!keepArrays &&
             !this._parentPositions.includes(position)))
       ) {
-        newObj[affectedKey] = this.getValueForPosition(position)
+        Object.defineProperty(newObj, affectedKey, {
+          configurable: true,
+          enumerable: true,
+          writable: true,
+          value: this.getValueForPosition(position)
+        })
       }
     })
     return newObj
@@ -808,9 +832,10 @@ export default class MongoObject {
       let current: any = newDoc
       for (let i = 0; i < subkeylen; i++) {
         const subkey = subkeys[i]
+        const existingValue = Object.hasOwn(current, subkey) ? current[subkey] : undefined
         if (
-          typeof current[subkey] !== 'undefined' &&
-          !isObject(current[subkey])
+          existingValue !== undefined &&
+          !isObject(existingValue)
         ) {
           break // Already set for some reason; leave it alone
         }
@@ -822,11 +847,11 @@ export default class MongoObject {
           // See if the next piece is a number
           const nextPiece = subkeys[i + 1]
           const nextPieceInt = parseInt(nextPiece, 10)
-          if (Number.isNaN(nextPieceInt) && !isObject(current[subkey])) {
+          if (Number.isNaN(nextPieceInt) && !isObject(existingValue)) {
             current[subkey] = {}
           } else if (
             !Number.isNaN(nextPieceInt) &&
-            !Array.isArray(current[subkey])
+            !Array.isArray(existingValue)
           ) {
             current[subkey] = []
           }

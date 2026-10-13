@@ -12,6 +12,11 @@
 
 An API for interacting with a MongoDB document or modifier.
 
+Path mutation and expansion methods ignore paths containing `__proto__`,
+`constructor`, or `prototype` as a path component. They traverse only own
+properties, so inherited objects are never modified through a path. Existing
+document fields with these names can still be indexed and flattened as data.
+
 ## Changelog
 
 3.0.0 Includes TypeScript types and exports as an ECMAScript Module. Otherwise it should be identical to 2.0.0.

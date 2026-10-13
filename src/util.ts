@@ -1,6 +1,16 @@
 /** Used as references for various `Number` constants. */
 const MAX_SAFE_INTEGER = 9007199254740991
 
+// Define data properties without invoking inherited setters such as __proto__.
+function setOwn (obj: Record<string, any> | any[], key: string, value: any): void {
+  Object.defineProperty(obj, key, {
+    configurable: true,
+    enumerable: true,
+    writable: true,
+    value
+  })
+}
+
 /**
  * @param doc Source object or array
  * @param isArray True if `doc` is an array
@@ -18,18 +28,18 @@ export function cleanNulls (
     let val = doc[key]
     if (!Array.isArray(val) && isBasicObject(val)) {
       val = cleanNulls(val, false, keepEmptyStrings) // Recurse into plain objects
-      if (!isEmpty(val)) (newDoc as Record<string, any>)[key] = val
+      if (!isEmpty(val)) setOwn(newDoc, key, val)
     } else if (Array.isArray(val)) {
       val = cleanNulls(val, true, keepEmptyStrings) // Recurse into non-typed arrays
-      if (!isEmpty(val)) (newDoc as Record<string, any>)[key] = val
+      if (!isEmpty(val)) setOwn(newDoc, key, val)
     } else if (!isNullUndefinedOrEmptyString(val)) {
-      (newDoc as Record<string, any>)[key] = val
+      setOwn(newDoc, key, val)
     } else if (
       keepEmptyStrings &&
       typeof val === 'string' &&
       val.length === 0
     ) {
-      (newDoc as Record<string, any>)[key] = val
+      setOwn(newDoc, key, val)
     }
   })
   return newDoc
@@ -70,7 +80,7 @@ export function reportNulls (
       (Array.isArray(val) &&
         (cleanNulls(val, true, keepEmptyStrings) as any[]).length === 0)
     ) {
-      nulls[key] = ''
+      setOwn(nulls, key, '')
     }
   })
   return nulls
@@ -247,16 +257,11 @@ export function isUnsafeKeyPiece (piece: string): boolean {
  * @param obj Object
  */
 export function expandKey (val: any, key: string, obj: any): void {
-  const subkeys = key.split('[')
+  const subkeys = key.split('[').map((piece) => piece.endsWith(']') ? piece.slice(0, -1) : piece)
+  if (subkeys.some(isUnsafeKeyPiece)) return
   let current = obj
   for (let i = 0, ln = subkeys.length; i < ln; i++) {
-    let subkey = subkeys[i]
-    if (subkey.slice(-1) === ']') {
-      subkey = subkey.slice(0, -1)
-    }
-
-    // Prevent prototype pollution
-    if (isUnsafeKeyPiece(subkey)) return
+    const subkey = subkeys[i]
 
     if (i === ln - 1) {
       // Last iteration; time to set the value; always overwrite
@@ -268,7 +273,7 @@ export function expandKey (val: any, key: string, obj: any): void {
     } else {
       // See if the next piece is a number
       const nextPiece = subkeys[i + 1]
-      if (current[subkey] === undefined) {
+      if (!Object.hasOwn(current, subkey) || current[subkey] === undefined) {
         current[subkey] = Number.isNaN(parseInt(nextPiece, 10)) ? {} : []
       }
     }
