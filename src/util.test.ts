@@ -84,6 +84,19 @@ describe('util', () => {
     })
   })
 
+  test('cleanNulls and reportNulls preserve prototype-named own data properties', () => {
+    const doc = JSON.parse('{"__proto__": {"ppBullseye": true}, "constructor": 1, "prototype": 2}')
+    const cleaned = cleanNulls(doc)
+    assert.deepStrictEqual(cleaned, doc)
+    assert.equal(Object.getPrototypeOf(cleaned), Object.prototype)
+    assert.equal(Object.hasOwn(Object.prototype, 'ppBullseye'), false)
+
+    const nullDoc = JSON.parse('{"__proto__": null, "constructor": null, "prototype": null}')
+    const reported = reportNulls(nullDoc)
+    assert.deepStrictEqual(reported, JSON.parse('{"__proto__": "", "constructor": "", "prototype": ""}'))
+    assert.equal(Object.getPrototypeOf(reported), Object.prototype)
+  })
+
   test('expandKey - prevents prototype pollution via __proto__', () => {
     const obj = {}
     expandKey('polluted', '__proto__[polluted]', obj)
@@ -119,5 +132,17 @@ describe('util', () => {
     const obj3 = {}
     expandKey('value3', 'a[b][0]', obj3)
     assert.deepStrictEqual(obj3, { a: { b: ['value3'] } })
+  })
+
+  test('expandKey validates complete paths and does not traverse inherited objects', () => {
+    const obj = {}
+    expandKey('polluted', 'safe[__proto__][ppBullseye]', obj)
+    assert.deepStrictEqual(obj, {})
+
+    const inherited = { child: { value: 1 } }
+    const doc = Object.create(inherited)
+    expandKey(2, 'child[value]', doc)
+    assert.deepStrictEqual(inherited, { child: { value: 1 } })
+    assert.deepStrictEqual(doc.child, { value: 2 })
   })
 })
