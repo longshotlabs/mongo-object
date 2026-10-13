@@ -12,7 +12,7 @@ import {
   keyToPosition,
   makeKeyGeneric,
   reportNulls
-} from './util.js'
+} from './util.ts'
 
 const REMOVED_MARKER = '______MONGO_OBJECT_REMOVED______'
 
@@ -53,6 +53,24 @@ interface MongoUpdateDoc {
   $unset?: Record<string, any>
 }
 
+// Traverse and pull out removed array items at this point
+function removeMarkedArrayItems(obj: any): void {
+  each(obj, (val, indexOrProp): undefined => {
+    // Move deeper into the object
+    const next = obj[indexOrProp]
+
+    // If we can go no further, then quit
+    if (isBasicObject(next)) {
+      removeMarkedArrayItems(next)
+    } else if (Array.isArray(next)) {
+      obj[indexOrProp] = next.filter((item) => item !== REMOVED_MARKER)
+      removeMarkedArrayItems(obj[indexOrProp])
+    }
+
+    return undefined
+  })
+}
+
 export default class MongoObject {
   private _affectedKeys: Record<string, string | null | undefined> = Object.create(null)
 
@@ -87,13 +105,13 @@ export default class MongoObject {
    * upon creation of the instance, the object will have any `undefined` keys
    * removed recursively.
    */
-  constructor (obj: MongoDoc, blackboxKeys: string[] = []) {
+  constructor(obj: MongoDoc, blackboxKeys: string[] = []) {
     this._obj = obj
     this._blackboxKeys = blackboxKeys
     this._reParseObj()
   }
 
-  _reParseObj (): void {
+  _reParseObj(): void {
     const blackboxKeys = new Set(this._blackboxKeys)
 
     this._affectedKeys = Object.create(null)
@@ -106,7 +124,7 @@ export default class MongoObject {
     this._objectPositions.clear()
     this._arrayItemPositions.clear()
 
-    function parseObj (
+    function parseObj(
       self: MongoObject,
       val: unknown,
       currentPosition?: string,
@@ -126,18 +144,13 @@ export default class MongoObject {
       if (affectedKey != null) {
         // Adjust for $push and $addToSet and $pull and $pop
         if (adjusted !== true) {
-          if (
-            operator === '$push' ||
-            operator === '$addToSet' ||
-            operator === '$pop'
-          ) {
+          if (operator === '$push' || operator === '$addToSet' || operator === '$pop') {
             // Adjust for $each
             // We can simply jump forward and pretend like the $each array
             // is the array for the field. This has the added benefit of
             // skipping past any $slice, which we also don't care about.
             if (isBasicObject(val) && '$each' in (val as MongoUpdateDoc)) {
               val = (val as MongoUpdateDoc).$each
-              // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
               currentPosition = `${currentPosition}[$each]`
             } else {
               affectedKey = `${affectedKey}.0`
@@ -156,11 +169,11 @@ export default class MongoObject {
 
         // Make generic key
         const affectedKeyGeneric = makeKeyGeneric(affectedKey)
-        if (affectedKeyGeneric === null) throw new Error(`Failed to get generic key for key "${affectedKey}"`)
+        if (affectedKeyGeneric === null)
+          throw new Error(`Failed to get generic key for key "${affectedKey}"`)
 
         // Determine whether affected key should be treated as a black box
-        affectedKeyIsBlackBox = affectedKeyGeneric !== null &&
-          blackboxKeys.has(affectedKeyGeneric)
+        affectedKeyIsBlackBox = affectedKeyGeneric !== null && blackboxKeys.has(affectedKeyGeneric)
 
         // Mark that this position affects this generic and non-generic key
         if (currentPosition != null) {
@@ -173,22 +186,21 @@ export default class MongoObject {
             position: currentPosition
           }
 
-          if (self._positionsByGenericKey[affectedKeyGeneric] == null) self._positionsByGenericKey[affectedKeyGeneric] = []
+          if (self._positionsByGenericKey[affectedKeyGeneric] == null)
+            self._positionsByGenericKey[affectedKeyGeneric] = []
           self._positionsByGenericKey[affectedKeyGeneric].push(positionInfo)
 
           // Operators other than $unset will cause ancestor object keys to
           // be auto-created.
           if (operator != null && operator !== '$unset') {
-            MongoObject.objectsThatGenericKeyWillCreate(
-              affectedKeyGeneric
-            ).forEach((objGenericKey) => {
-              if (self._positionsThatCreateGenericKey[objGenericKey] === undefined) {
-                self._positionsThatCreateGenericKey[objGenericKey] = []
+            MongoObject.objectsThatGenericKeyWillCreate(affectedKeyGeneric).forEach(
+              (objGenericKey) => {
+                if (self._positionsThatCreateGenericKey[objGenericKey] === undefined) {
+                  self._positionsThatCreateGenericKey[objGenericKey] = []
+                }
+                self._positionsThatCreateGenericKey[objGenericKey].push(positionInfo)
               }
-              self._positionsThatCreateGenericKey[objGenericKey].push(
-                positionInfo
-              )
-            })
+            )
           }
 
           // If we're within an array, mark this position so we can omit it from flat docs
@@ -212,17 +224,13 @@ export default class MongoObject {
             self,
             v,
             currentPosition != null ? `${currentPosition}[${i}]` : String(i),
-            // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
             `${affectedKey}.${i}`,
             operator,
             adjusted,
             true
           )
         })
-      } else if (
-        (isBasicObject(val) && !affectedKeyIsBlackBox) ||
-        currentPosition == null
-      ) {
+      } else if ((isBasicObject(val) && !affectedKeyIsBlackBox) || currentPosition == null) {
         // Loop through object keys, only for basic objects,
         // but always for the passed-in object, even if it
         // is a custom object.
@@ -240,7 +248,6 @@ export default class MongoObject {
           const v = (val as Record<string, any>)[k]
 
           if (v === undefined) {
-            // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
             delete (val as Record<string, any>)[k]
           } else if (k !== '$slice') {
             parseObj(
@@ -282,7 +289,7 @@ export default class MongoObject {
    * (3) the representation of what would be changed in mongo, using mongo dot notation
    * (4) the generic equivalent of argument 3, with '$' instead of numeric pieces
    */
-  forEachNode (func: () => void, { endPointsOnly = true } = {}): void {
+  forEachNode(func: () => void, { endPointsOnly = true } = {}): void {
     if (typeof func !== 'function') throw new Error('filter requires a loop function')
 
     const updatedValues: Record<string, any> = Object.create(null)
@@ -319,7 +326,7 @@ export default class MongoObject {
     }
   }
 
-  getValueForPosition (position: string): any {
+  getValueForPosition(position: string): any {
     const subkeys = position.split('[')
     let current: any = this._obj
     const ln = subkeys.length
@@ -341,13 +348,15 @@ export default class MongoObject {
    * @param position
    * @param value
    */
-  setValueForPosition (position: string, value: any): void {
+  setValueForPosition(position: string, value: any): void {
     if (this._setValueForPosition(position, value)) this._reParseObj()
   }
 
   /** Apply a write and report whether indexes need rebuilding. */
-  private _setValueForPosition (position: string, value: any): boolean {
-    const subkeys = position.split('[').map((piece) => piece.endsWith(']') ? piece.slice(0, -1) : piece)
+  private _setValueForPosition(position: string, value: any): boolean {
+    const subkeys = position
+      .split('[')
+      .map((piece) => (piece.endsWith(']') ? piece.slice(0, -1) : piece))
     // Validate the entire path before creating or changing any properties.
     if (subkeys.some(isUnsafeKeyPiece)) return false
     let current: any = this._obj
@@ -379,7 +388,6 @@ export default class MongoObject {
             // We will mark it uniquely and then parse this elsewhere
             current[Number(subkey)] = REMOVED_MARKER
           } else {
-            // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
             delete current[subkey]
           }
         } else {
@@ -391,7 +399,10 @@ export default class MongoObject {
         // Otherwise attempt to keep moving deeper into the object.
         // If we're setting (as opposed to deleting) a key and we hit a place
         // in the ancestor chain where the keys are not yet created, create them.
-        if ((!Object.hasOwn(current, subkey) || current[subkey] === undefined) && value !== undefined) {
+        if (
+          (!Object.hasOwn(current, subkey) || current[subkey] === undefined) &&
+          value !== undefined
+        ) {
           // See if the next piece is a number
           const nextPiece = subkeys[i + 1]
           current[subkey] = Number.isNaN(parseInt(nextPiece, 10)) ? {} : []
@@ -406,29 +417,32 @@ export default class MongoObject {
         current = current[subkey]
 
         // If we can go no further, then quit
-        if (!Array.isArray(current) && !isBasicObject(current) && i < ln - 1) return createdObjectsOrArrays
+        if (!Array.isArray(current) && !isBasicObject(current) && i < ln - 1)
+          return createdObjectsOrArrays
       }
     }
 
     // Structural changes require refreshing all indexes and endpoint metadata.
-    return createdObjectsOrArrays ||
+    return (
+      createdObjectsOrArrays ||
       replacedObjectOrArray ||
       isNewPosition ||
       previousAffectedKey !== affectedKey ||
       value === undefined ||
       Array.isArray(value) ||
       isBasicObject(value)
+    )
   }
 
-  removeValueForPosition (position: string): void {
+  removeValueForPosition(position: string): void {
     this.setValueForPosition(position, undefined)
   }
 
-  getKeyForPosition (position: string): string | null | undefined {
+  getKeyForPosition(position: string): string | null | undefined {
     return this._affectedKeys[position]
   }
 
-  getGenericKeyForPosition (position: string): string | null | undefined {
+  getGenericKeyForPosition(position: string): string | null | undefined {
     return this._genericAffectedKeys[position]
   }
 
@@ -437,7 +451,7 @@ export default class MongoObject {
    * @returns The value and operator of the requested non-generic key.
    *   Example: {value: 1, operator: "$pull"}
    */
-  getInfoForKey (key: string): KeyInfo | undefined {
+  getInfoForKey(key: string): KeyInfo | undefined {
     // Get the info
     const position = this.getPositionForKey(key)
     if (position !== undefined) {
@@ -477,7 +491,7 @@ export default class MongoObject {
    *   affects the requested non-generic key.
    *   Example: 'foo[bar][0]'
    */
-  getPositionForKey (key: string): string | undefined {
+  getPositionForKey(key: string): string | undefined {
     return this._affectedPositions.get(key)
   }
 
@@ -487,7 +501,7 @@ export default class MongoObject {
    *   affect the requested generic key.
    *   Example: ['foo[bar][0]']
    */
-  getPositionsForGenericKey (genericKey: string): string[] {
+  getPositionsForGenericKey(genericKey: string): string[] {
     return this._getPositionsInfoForGenericKey(genericKey).map((info) => info.position)
   }
 
@@ -496,20 +510,20 @@ export default class MongoObject {
    * @returns An array of position info for the places in the object that
    *   affect the requested generic key.
    */
-  getPositionsInfoForGenericKey (genericKey: string): PositionInfo[] {
+  getPositionsInfoForGenericKey(genericKey: string): PositionInfo[] {
     return this._getPositionsInfoForGenericKey(genericKey).map((info) => ({
       value: this.getValueForPosition(info.position),
       ...info
     }))
   }
 
-  private _getPositionsInfoForGenericKey (genericKey: string): PositionInfo[] {
+  private _getPositionsInfoForGenericKey(genericKey: string): PositionInfo[] {
     const positions = this._positionsByGenericKey[genericKey]
     if (positions != null && positions.length > 0) return positions
     return this._positionsByGenericKey[`${genericKey}.$`] ?? []
   }
 
-  getPositionsThatCreateGenericKey (genericKey: string): PositionInfo[] {
+  getPositionsThatCreateGenericKey(genericKey: string): PositionInfo[] {
     return this._positionsThatCreateGenericKey[genericKey] ?? []
   }
 
@@ -518,7 +532,7 @@ export default class MongoObject {
    * @param {String} key - Non-generic key
    * @returns The value of the requested non-generic key
    */
-  getValueForKey (key: string): any {
+  getValueForKey(key: string): any {
     const position = this.getPositionForKey(key)
     if (position != null) return this.getValueForPosition(position)
   }
@@ -531,7 +545,7 @@ export default class MongoObject {
    * @param op Operator under which to set it, or `null` for a non-modifier object
    * @returns
    */
-  addKey (key: string, val: any, op: string | null): void {
+  addKey(key: string, val: any, op: string | null): void {
     const position = op != null ? `${op}[${key}]` : keyToPosition(key)
     this.setValueForPosition(position, val)
   }
@@ -539,35 +553,31 @@ export default class MongoObject {
   /**
    * Removes anything that affects any of the generic keys in the list
    */
-  removeGenericKeys (keys: string[]): void {
+  removeGenericKeys(keys: string[]): void {
     const keysToRemove = new Set(keys)
-    Object.getOwnPropertyNames(this._genericAffectedKeys).forEach(
-      (position) => {
-        const genericKey = this._genericAffectedKeys[position]
-        if (genericKey !== null && keysToRemove.has(genericKey)) {
-          this.removeValueForPosition(position)
-        }
+    Object.getOwnPropertyNames(this._genericAffectedKeys).forEach((position) => {
+      const genericKey = this._genericAffectedKeys[position]
+      if (genericKey !== null && keysToRemove.has(genericKey)) {
+        this.removeValueForPosition(position)
       }
-    )
+    })
   }
 
   /**
    * Removes anything that affects the requested generic key
    */
-  removeGenericKey (key: string): void {
-    Object.getOwnPropertyNames(this._genericAffectedKeys).forEach(
-      (position) => {
-        if (this._genericAffectedKeys[position] === key) {
-          this.removeValueForPosition(position)
-        }
+  removeGenericKey(key: string): void {
+    Object.getOwnPropertyNames(this._genericAffectedKeys).forEach((position) => {
+      if (this._genericAffectedKeys[position] === key) {
+        this.removeValueForPosition(position)
       }
-    )
+    })
   }
 
   /**
    * Removes anything that affects the requested non-generic key
    */
-  removeKey (key: string): void {
+  removeKey(key: string): void {
     // We don't use getPositionForKey here because we want to be sure to
     // remove for all positions if there are multiple.
     Object.getOwnPropertyNames(this._affectedKeys).forEach((position) => {
@@ -580,7 +590,7 @@ export default class MongoObject {
   /**
    * Removes anything that affects any of the non-generic keys in the list
    */
-  removeKeys (keys: string[]): void {
+  removeKeys(keys: string[]): void {
     keys.forEach((key) => this.removeKey(key))
   }
 
@@ -588,20 +598,18 @@ export default class MongoObject {
    * Passes all affected keys to a test function, which
    * should return false to remove whatever is affecting that key
    */
-  filterGenericKeys (test: (genericKey: string) => boolean): void {
+  filterGenericKeys(test: (genericKey: string) => boolean): void {
     const checkedKeys = new Set<string>()
     const keysToRemove: string[] = []
-    Object.getOwnPropertyNames(this._genericAffectedKeys).forEach(
-      (position) => {
-        const genericKey = this._genericAffectedKeys[position]
-        if (genericKey !== null && !checkedKeys.has(genericKey)) {
-          checkedKeys.add(genericKey)
-          if (genericKey != null && !test(genericKey)) {
-            keysToRemove.push(genericKey)
-          }
+    Object.getOwnPropertyNames(this._genericAffectedKeys).forEach((position) => {
+      const genericKey = this._genericAffectedKeys[position]
+      if (genericKey !== null && !checkedKeys.has(genericKey)) {
+        checkedKeys.add(genericKey)
+        if (genericKey != null && !test(genericKey)) {
+          keysToRemove.push(genericKey)
         }
       }
-    )
+    })
 
     keysToRemove.forEach((key) => this.removeGenericKey(key))
   }
@@ -610,7 +618,7 @@ export default class MongoObject {
    * Sets the value for every place in the object that affects
    * the requested non-generic key
    */
-  setValueForKey (key: string, val: any): void {
+  setValueForKey(key: string, val: any): void {
     // We don't use getPositionForKey here because we want to be sure to
     // set the value for all positions if there are multiple.
     Object.getOwnPropertyNames(this._affectedKeys).forEach((position) => {
@@ -624,38 +632,18 @@ export default class MongoObject {
    * Sets the value for every place in the object that affects
    * the requested generic key
    */
-  setValueForGenericKey (key: string, val: any): void {
+  setValueForGenericKey(key: string, val: any): void {
     // We don't use getPositionForKey here because we want to be sure to
     // set the value for all positions if there are multiple.
-    Object.getOwnPropertyNames(this._genericAffectedKeys).forEach(
-      (position) => {
-        if (this._genericAffectedKeys[position] === key) {
-          this.setValueForPosition(position, val)
-        }
+    Object.getOwnPropertyNames(this._genericAffectedKeys).forEach((position) => {
+      if (this._genericAffectedKeys[position] === key) {
+        this.setValueForPosition(position, val)
       }
-    )
+    })
   }
 
-  removeArrayItems (): void {
-    // Traverse and pull out removed array items at this point
-    function traverse (obj: any): void {
-      each(obj, (val, indexOrProp): undefined => {
-        // Move deeper into the object
-        const next = obj[indexOrProp]
-
-        // If we can go no further, then quit
-        if (isBasicObject(next)) {
-          traverse(next)
-        } else if (Array.isArray(next)) {
-          obj[indexOrProp] = next.filter((item) => item !== REMOVED_MARKER)
-          traverse(obj[indexOrProp])
-        }
-
-        return undefined
-      })
-    }
-
-    traverse(this._obj)
+  removeArrayItems(): void {
+    removeMarkedArrayItems(this._obj)
     this._reParseObj()
   }
 
@@ -663,7 +651,7 @@ export default class MongoObject {
    * Get the source object, potentially modified by other method calls on this
    * MongoObject instance.
    */
-  getObject (): MongoDoc {
+  getObject(): MongoDoc {
     return this._obj
   }
 
@@ -680,10 +668,7 @@ export default class MongoObject {
    * if ever what we actually want. To avoid this confusion, we
    * set entire arrays.
    */
-  getFlatObject ({ keepArrays = false }: GetFlatObjectOptions = {}): Record<
-  string,
-  any
-  > {
+  getFlatObject({ keepArrays = false }: GetFlatObjectOptions = {}): Record<string, any> {
     const newObj: Record<string, any> = {}
     Object.keys(this._affectedKeys).forEach((position) => {
       const affectedKey = this._affectedKeys[position]
@@ -692,8 +677,7 @@ export default class MongoObject {
         ((keepArrays &&
           !this._positionsInsideArrays.has(position) &&
           !this._objectPositions.has(position)) ||
-          (!keepArrays &&
-            !this._parentPositions.has(position)))
+          (!keepArrays && !this._parentPositions.has(position)))
       ) {
         Object.defineProperty(newObj, affectedKey, {
           configurable: true,
@@ -711,7 +695,7 @@ export default class MongoObject {
    * @param key Key to test
    * @returns True if the non-generic key is affected by this object
    */
-  affectsKey (key: string): boolean {
+  affectsKey(key: string): boolean {
     return this.getPositionForKey(key) !== undefined
   }
 
@@ -720,7 +704,7 @@ export default class MongoObject {
    * @param key Key to test
    * @returns True if the generic key is affected by this object
    */
-  affectsGenericKey (key: string): boolean {
+  affectsGenericKey(key: string): boolean {
     const positions = Object.getOwnPropertyNames(this._genericAffectedKeys)
     for (let index = 0; index < positions.length; index++) {
       const position = positions[index]
@@ -735,15 +719,12 @@ export default class MongoObject {
    * @param key Key to test
    * @returns Like affectsGenericKey, but will return true if a child key is affected
    */
-  affectsGenericKeyImplicit (key: string): boolean {
+  affectsGenericKeyImplicit(key: string): boolean {
     const positions = Object.getOwnPropertyNames(this._genericAffectedKeys)
     for (let index = 0; index < positions.length; index++) {
       const position = positions[index]
       const affectedKey = this._genericAffectedKeys[position]
-      if (
-        affectedKey !== null &&
-        genericKeyAffectsOtherGenericKey(key, affectedKey)
-      ) return true
+      if (affectedKey !== null && genericKeyAffectsOtherGenericKey(key, affectedKey)) return true
     }
 
     return false
@@ -772,7 +753,7 @@ export default class MongoObject {
    * @param position
    * @returns The key that this position in an object would affect.
    */
-  static _positionToKey (position: string): string | null | undefined {
+  static _positionToKey(position: string): string | null | undefined {
     // XXX Probably a better way to do this, but this is
     // foolproof for now.
     const mDoc = new MongoObject({})
@@ -791,7 +772,7 @@ export default class MongoObject {
    * null, undefined, and empty string values into `modifier.$unset`, and
    * putting the rest of the keys into `modifier.$set`.
    */
-  public static docToModifier (
+  public static docToModifier(
     doc: any,
     { keepArrays = false, keepEmptyStrings = false }: DocToModifierOptions = {}
   ): any {
@@ -809,7 +790,7 @@ export default class MongoObject {
     return modifier
   }
 
-  static objAffectsKey (obj: any, key: string): boolean {
+  static objAffectsKey(obj: any, key: string): boolean {
     const mDoc = new MongoObject(obj)
     return mDoc.affectsKey(key)
   }
@@ -818,7 +799,7 @@ export default class MongoObject {
    * @param genericKey Generic key
    * @return Array of other generic keys that would be created by this generic key
    */
-  static objectsThatGenericKeyWillCreate (genericKey: string): string[] {
+  static objectsThatGenericKeyWillCreate(genericKey: string): string[] {
     const objs = []
 
     do {
@@ -833,7 +814,7 @@ export default class MongoObject {
   /**
    * Takes a flat object and returns an expanded version of it.
    */
-  static expandObj (doc: Record<string, any>): Record<string, any> {
+  static expandObj(doc: Record<string, any>): Record<string, any> {
     const newDoc = {}
     Object.keys(doc).forEach((key) => {
       const val = doc[key]
@@ -845,10 +826,7 @@ export default class MongoObject {
       for (let i = 0; i < subkeylen; i++) {
         const subkey = subkeys[i]
         const existingValue = Object.hasOwn(current, subkey) ? current[subkey] : undefined
-        if (
-          existingValue !== undefined &&
-          !isObject(existingValue)
-        ) {
+        if (existingValue !== undefined && !isObject(existingValue)) {
           break // Already set for some reason; leave it alone
         }
 
@@ -861,10 +839,7 @@ export default class MongoObject {
           const nextPieceInt = parseInt(nextPiece, 10)
           if (Number.isNaN(nextPieceInt) && !isObject(existingValue)) {
             current[subkey] = {}
-          } else if (
-            !Number.isNaN(nextPieceInt) &&
-            !Array.isArray(existingValue)
-          ) {
+          } else if (!Number.isNaN(nextPieceInt) && !Array.isArray(existingValue)) {
             current[subkey] = []
           }
         }

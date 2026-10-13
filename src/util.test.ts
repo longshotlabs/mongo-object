@@ -1,8 +1,7 @@
-/* eslint-disable @typescript-eslint/no-floating-promises */
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 
-import { cleanNulls, expandKey, reportNulls } from './util.js'
+import { cleanNulls, expandKey, reportNulls } from './util.ts'
 
 describe('util', () => {
   test('cleanNulls', () => {
@@ -56,14 +55,14 @@ describe('util', () => {
 
     assert.deepStrictEqual(cleaned, {
       a: {
-        // eslint-disable-next-line no-sparse-arrays
+        /* eslint-disable no-sparse-arrays -- Cleaning leaves holes in arrays. */
         b: [
           ,
           {
-            // eslint-disable-next-line no-sparse-arrays
             e: [, 'keep']
           }
         ]
+        /* eslint-enable no-sparse-arrays */
       }
     })
   })
@@ -93,7 +92,10 @@ describe('util', () => {
 
     const nullDoc = JSON.parse('{"__proto__": null, "constructor": null, "prototype": null}')
     const reported = reportNulls(nullDoc)
-    assert.deepStrictEqual(reported, JSON.parse('{"__proto__": "", "constructor": "", "prototype": ""}'))
+    assert.deepStrictEqual(
+      reported,
+      JSON.parse('{"__proto__": "", "constructor": "", "prototype": ""}')
+    )
     assert.equal(Object.getPrototypeOf(reported), Object.prototype)
   })
 
@@ -101,7 +103,7 @@ describe('util', () => {
     const obj = {}
     expandKey('polluted', '__proto__[polluted]', obj)
     // eslint-disable-next-line no-prototype-builtins
-    assert.ok(!({}).hasOwnProperty('polluted'))
+    assert.ok(!{}.hasOwnProperty('polluted'))
     // eslint-disable-next-line no-prototype-builtins
     assert.ok(!Object.prototype.hasOwnProperty('polluted'))
   })
@@ -110,14 +112,14 @@ describe('util', () => {
     const obj = {}
     expandKey('polluted', 'constructor[polluted]', obj)
     // eslint-disable-next-line no-prototype-builtins
-    assert.ok(!({}).hasOwnProperty('polluted'))
+    assert.ok(!{}.hasOwnProperty('polluted'))
   })
 
   test('expandKey - prevents prototype pollution via prototype', () => {
     const obj = {}
     expandKey('polluted', 'prototype[polluted]', obj)
     // eslint-disable-next-line no-prototype-builtins
-    assert.ok(!({}).hasOwnProperty('polluted'))
+    assert.ok(!{}.hasOwnProperty('polluted'))
   })
 
   test('expandKey - normal operation still works', () => {
