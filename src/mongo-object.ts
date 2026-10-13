@@ -58,7 +58,7 @@ export default class MongoObject {
 
   private readonly _affectedPositions = new Map<string, string>()
 
-  private _arrayItemPositions: string[] = []
+  private readonly _arrayItemPositions = new Set<string>()
 
   private readonly _blackboxKeys: string[] = []
 
@@ -66,13 +66,13 @@ export default class MongoObject {
 
   private readonly _obj: MongoDoc
 
-  private _objectPositions: string[] = []
+  private readonly _objectPositions = new Set<string>()
 
-  private _parentPositions: string[] = []
+  private readonly _parentPositions = new Set<string>()
 
   private _positionsByGenericKey: Record<string, PositionInfo[]> = Object.create(null)
 
-  private _positionsInsideArrays: string[] = []
+  private readonly _positionsInsideArrays = new Set<string>()
 
   private _positionsThatCreateGenericKey: Record<string, PositionInfo[]> = Object.create(null)
 
@@ -94,17 +94,17 @@ export default class MongoObject {
   }
 
   _reParseObj (): void {
-    const blackboxKeys = this._blackboxKeys
+    const blackboxKeys = new Set(this._blackboxKeys)
 
     this._affectedKeys = Object.create(null)
     this._affectedPositions.clear()
     this._genericAffectedKeys = Object.create(null)
     this._positionsByGenericKey = Object.create(null)
     this._positionsThatCreateGenericKey = Object.create(null)
-    this._parentPositions = []
-    this._positionsInsideArrays = []
-    this._objectPositions = []
-    this._arrayItemPositions = []
+    this._parentPositions.clear()
+    this._positionsInsideArrays.clear()
+    this._objectPositions.clear()
+    this._arrayItemPositions.clear()
 
     function parseObj (
       self: MongoObject,
@@ -160,7 +160,7 @@ export default class MongoObject {
 
         // Determine whether affected key should be treated as a black box
         affectedKeyIsBlackBox = affectedKeyGeneric !== null &&
-          blackboxKeys.includes(affectedKeyGeneric)
+          blackboxKeys.has(affectedKeyGeneric)
 
         // Mark that this position affects this generic and non-generic key
         if (currentPosition != null) {
@@ -192,7 +192,7 @@ export default class MongoObject {
           }
 
           // If we're within an array, mark this position so we can omit it from flat docs
-          if (isWithinArray === true) self._positionsInsideArrays.push(currentPosition)
+          if (isWithinArray === true) self._positionsInsideArrays.add(currentPosition)
         }
       }
 
@@ -202,12 +202,12 @@ export default class MongoObject {
       if (Array.isArray(val) && val.length > 0) {
         if (currentPosition != null) {
           // Mark positions with arrays that should be ignored when we want endpoints only
-          self._parentPositions.push(currentPosition)
+          self._parentPositions.add(currentPosition)
         }
 
         // Loop
         val.forEach((v, i) => {
-          if (currentPosition != null) self._arrayItemPositions.push(`${currentPosition}[${i}]`)
+          if (currentPosition != null) self._arrayItemPositions.add(`${currentPosition}[${i}]`)
           parseObj(
             self,
             v,
@@ -229,10 +229,10 @@ export default class MongoObject {
 
         if (currentPosition != null && !isEmpty(val)) {
           // Mark positions with objects that should be ignored when we want endpoints only
-          self._parentPositions.push(currentPosition)
+          self._parentPositions.add(currentPosition)
 
           // Mark positions with objects that should be left out of flat docs.
-          self._objectPositions.push(currentPosition)
+          self._objectPositions.add(currentPosition)
         }
 
         // Loop
@@ -287,10 +287,10 @@ export default class MongoObject {
 
     const updatedValues: Record<string, any> = Object.create(null)
     Object.keys(this._affectedKeys).forEach((position) => {
-      if (endPointsOnly && this._parentPositions.includes(position)) return // Only endpoints
+      if (endPointsOnly && this._parentPositions.has(position)) return // Only endpoints
       func.call({
         value: this.getValueForPosition(position),
-        isArrayItem: this._arrayItemPositions.includes(position),
+        isArrayItem: this._arrayItemPositions.has(position),
         operator: extractOp(position),
         position,
         key: this._affectedKeys[position],
@@ -304,10 +304,19 @@ export default class MongoObject {
       })
     })
 
-    // Actually update/remove values as instructed
-    Object.keys(updatedValues).forEach((position) => {
-      this.setValueForPosition(position, updatedValues[position])
-    })
+    // Callbacks above retain synchronous indexes. Only the queued writes below
+    // are batched; their positions and values no longer depend on those indexes.
+    let needsReparse = false
+    let completed = false
+    try {
+      Object.keys(updatedValues).forEach((position) => {
+        if (this._setValueForPosition(position, updatedValues[position])) needsReparse = true
+      })
+      completed = true
+    } finally {
+      // A throwing write may have changed an ancestor before failing.
+      if (needsReparse || !completed) this._reParseObj()
+    }
   }
 
   getValueForPosition (position: string): any {
@@ -333,9 +342,14 @@ export default class MongoObject {
    * @param value
    */
   setValueForPosition (position: string, value: any): void {
+    if (this._setValueForPosition(position, value)) this._reParseObj()
+  }
+
+  /** Apply a write and report whether indexes need rebuilding. */
+  private _setValueForPosition (position: string, value: any): boolean {
     const subkeys = position.split('[').map((piece) => piece.endsWith(']') ? piece.slice(0, -1) : piece)
     // Validate the entire path before creating or changing any properties.
-    if (subkeys.some(isUnsafeKeyPiece)) return
+    if (subkeys.some(isUnsafeKeyPiece)) return false
     let current: any = this._obj
     const ln = subkeys.length
 
@@ -388,26 +402,22 @@ export default class MongoObject {
         }
 
         // Move deeper into the object
-        if (!Object.hasOwn(current, subkey)) return
+        if (!Object.hasOwn(current, subkey)) return createdObjectsOrArrays
         current = current[subkey]
 
         // If we can go no further, then quit
-        if (!Array.isArray(current) && !isBasicObject(current) && i < ln - 1) return
+        if (!Array.isArray(current) && !isBasicObject(current) && i < ln - 1) return createdObjectsOrArrays
       }
     }
 
     // Structural changes require refreshing all indexes and endpoint metadata.
-    if (
-      createdObjectsOrArrays ||
+    return createdObjectsOrArrays ||
       replacedObjectOrArray ||
       isNewPosition ||
       previousAffectedKey !== affectedKey ||
       value === undefined ||
       Array.isArray(value) ||
       isBasicObject(value)
-    ) {
-      this._reParseObj()
-    }
   }
 
   removeValueForPosition (position: string): void {
@@ -478,9 +488,7 @@ export default class MongoObject {
    *   Example: ['foo[bar][0]']
    */
   getPositionsForGenericKey (genericKey: string): string[] {
-    return this.getPositionsInfoForGenericKey(genericKey).map(
-      (p) => p.position
-    )
+    return this._getPositionsInfoForGenericKey(genericKey).map((info) => info.position)
   }
 
   /**
@@ -489,13 +497,16 @@ export default class MongoObject {
    *   affect the requested generic key.
    */
   getPositionsInfoForGenericKey (genericKey: string): PositionInfo[] {
-    let positions = this._positionsByGenericKey[genericKey]
-    if (positions == null || positions.length === 0) positions = this._positionsByGenericKey[`${genericKey}.$`]
-    if (positions == null || positions.length === 0) positions = []
-    return positions.map((info) => ({
+    return this._getPositionsInfoForGenericKey(genericKey).map((info) => ({
       value: this.getValueForPosition(info.position),
       ...info
     }))
+  }
+
+  private _getPositionsInfoForGenericKey (genericKey: string): PositionInfo[] {
+    const positions = this._positionsByGenericKey[genericKey]
+    if (positions != null && positions.length > 0) return positions
+    return this._positionsByGenericKey[`${genericKey}.$`] ?? []
   }
 
   getPositionsThatCreateGenericKey (genericKey: string): PositionInfo[] {
@@ -529,10 +540,11 @@ export default class MongoObject {
    * Removes anything that affects any of the generic keys in the list
    */
   removeGenericKeys (keys: string[]): void {
+    const keysToRemove = new Set(keys)
     Object.getOwnPropertyNames(this._genericAffectedKeys).forEach(
       (position) => {
         const genericKey = this._genericAffectedKeys[position]
-        if (genericKey !== null && keys.includes(genericKey)) {
+        if (genericKey !== null && keysToRemove.has(genericKey)) {
           this.removeValueForPosition(position)
         }
       }
@@ -577,13 +589,13 @@ export default class MongoObject {
    * should return false to remove whatever is affecting that key
    */
   filterGenericKeys (test: (genericKey: string) => boolean): void {
-    const checkedKeys: string[] = []
+    const checkedKeys = new Set<string>()
     const keysToRemove: string[] = []
     Object.getOwnPropertyNames(this._genericAffectedKeys).forEach(
       (position) => {
         const genericKey = this._genericAffectedKeys[position]
-        if (genericKey !== null && !checkedKeys.includes(genericKey)) {
-          checkedKeys.push(genericKey)
+        if (genericKey !== null && !checkedKeys.has(genericKey)) {
+          checkedKeys.add(genericKey)
           if (genericKey != null && !test(genericKey)) {
             keysToRemove.push(genericKey)
           }
@@ -678,10 +690,10 @@ export default class MongoObject {
       if (
         typeof affectedKey === 'string' &&
         ((keepArrays &&
-          !this._positionsInsideArrays.includes(position) &&
-          !this._objectPositions.includes(position)) ||
+          !this._positionsInsideArrays.has(position) &&
+          !this._objectPositions.has(position)) ||
           (!keepArrays &&
-            !this._parentPositions.includes(position)))
+            !this._parentPositions.has(position)))
       ) {
         Object.defineProperty(newObj, affectedKey, {
           configurable: true,
